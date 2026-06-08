@@ -24,6 +24,63 @@ interface TopicLessonsProps {
   onWordLearned?: (wordId: string) => void;
 }
 
+let activeAudio: HTMLAudioElement | null = null;
+
+const speakWord = (text: string) => {
+  try {
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio = null;
+    }
+
+    // Clean string from brackets and emoji components
+    const cleanedText = text
+      .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])/g, '')
+      .replace(/[()_#/[\]]/g, ' ')
+      .trim();
+      
+    if (!cleanedText) return;
+
+    const selectedVoiceName = localStorage.getItem("viling_selected_voice") || "google-tts";
+
+    if (selectedVoiceName === "google-tts") {
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(cleanedText)}`;
+      const audio = new Audio(ttsUrl);
+      activeAudio = audio;
+      
+      audio.play().catch(err => {
+        console.warn("Google TTS stream blocked or failed, falling back to Web Speech Synthesis:", err);
+        // Fallback
+        if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(cleanedText);
+          utterance.lang = "vi-VN";
+          utterance.rate = 0.88;
+          window.speechSynthesis.speak(utterance);
+        }
+      });
+    } else {
+      if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanedText);
+        utterance.lang = "vi-VN";
+        utterance.rate = 0.88;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const matchingVoice = voices.find(v => v.name === selectedVoiceName);
+        if (matchingVoice) {
+          utterance.voice = matchingVoice;
+        }
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  } catch (error) {
+    console.warn("Google TTS audio system failure in TopicLessons:", error);
+  }
+};
+
 interface TopicCardInfo {
   id: string;
   name: string;
@@ -826,6 +883,9 @@ export default function TopicLessons({
     const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
     setXpHistory((old) => [...old, { date: `${timeLabel} (Học)`, xp: newScore }]);
 
+    // Pronounce word
+    speakWord(wordText);
+
     // Play high pitch pleasant synthesized sound
     playBeep(880, "sine", 0.15, soundEnabled);
   };
@@ -1498,21 +1558,34 @@ export default function TopicLessons({
                             return (
                               <div
                                 key={item.id}
-                                className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-sm transition-all relative overflow-hidden"
+                                className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-sm transition-all relative overflow-hidden text-left"
                               >
-                                <div className="flex items-start justify-between mb-1.5">
-                                  <div>
-                                    <h4 className="text-sm font-black text-[var(--text-main)] tracking-tight">
-                                      {item.word}
-                                    </h4>
-                                    <span className="text-[9px] font-semibold text-[var(--text-sub)] bg-[var(--input-bg)] border border-[var(--border-color)] px-1.5 py-0.5 rounded uppercase">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <h4 className="text-sm font-black text-[var(--text-main)] tracking-tight">
+                                        {item.word}
+                                      </h4>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          speakWord(item.word);
+                                        }}
+                                        className="p-1 rounded-full text-red-600 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] shrink-0"
+                                        title="Nghe phát âm từ vựng tiếng Việt"
+                                      >
+                                        🔊
+                                      </button>
+                                    </div>
+                                    <span className="text-[9px] font-semibold text-[var(--text-sub)] bg-[var(--input-bg)] border border-[var(--border-color)] px-1.5 py-0.5 rounded uppercase block mt-1.5 w-max truncate max-w-full">
                                       {item.partOfSpeech} • {item.translationOrMeaning}
                                     </span>
                                   </div>
                                   <button
                                     disabled={isLearned}
                                     onClick={() => handleLearnWord(item.id, item.word)}
-                                    className={`cursor-pointer px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg transition-all ${
+                                    className={`cursor-pointer px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg transition-all shrink-0 ${
                                       isLearned
                                         ? "bg-green-500/10 text-green-600 dark:text-green-400 cursor-not-allowed border border-green-500/25"
                                         : "bg-yellow-500 text-slate-900 shadow-sm active:scale-95"
@@ -1526,8 +1599,21 @@ export default function TopicLessons({
                                   {item.explanation}
                                 </p>
 
-                                <div className="text-[10px] italic text-[var(--text-sub)]">
-                                  <strong>Ví dụ: </strong>&quot;{item.example}&quot;
+                                <div className="flex items-center justify-between gap-2 mt-1.5">
+                                  <div className="text-[10px] italic text-[var(--text-sub)] min-w-0 flex-1 truncate">
+                                    <strong>Ví dụ: </strong>&quot;{item.example}&quot;
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      speakWord(item.example);
+                                    }}
+                                    className="text-[9px] font-bold text-[#b91c1c] dark:text-red-400 hover:underline cursor-pointer flex items-center gap-1 shrink-0"
+                                    title="Nghe đọc toàn bộ câu ví dụ tiếng Việt"
+                                  >
+                                    <span>🔊 Nghe câu ví dụ</span>
+                                  </button>
                                 </div>
                               </div>
                             );

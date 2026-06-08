@@ -266,6 +266,63 @@ const CORE_CHALLENGES_DICT: Record<string, Omit<VocabItem, "source" | "id">> = {
   },
 };
 
+let activeAudio: HTMLAudioElement | null = null;
+
+const speakWord = (text: string) => {
+  try {
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio = null;
+    }
+
+    // Clean string from brackets and emoji components
+    const cleanedText = text
+      .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])/g, '')
+      .replace(/[()_#/[\]]/g, ' ')
+      .trim();
+      
+    if (!cleanedText) return;
+
+    const selectedVoiceName = localStorage.getItem("viling_selected_voice") || "google-tts";
+
+    if (selectedVoiceName === "google-tts") {
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(cleanedText)}`;
+      const audio = new Audio(ttsUrl);
+      activeAudio = audio;
+      
+      audio.play().catch(err => {
+        console.warn("Google TTS stream blocked or failed, falling back to Web Speech Synthesis:", err);
+        // Fallback
+        if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(cleanedText);
+          utterance.lang = "vi-VN";
+          utterance.rate = 0.88;
+          window.speechSynthesis.speak(utterance);
+        }
+      });
+    } else {
+      if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanedText);
+        utterance.lang = "vi-VN";
+        utterance.rate = 0.88;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const matchingVoice = voices.find(v => v.name === selectedVoiceName);
+        if (matchingVoice) {
+          utterance.voice = matchingVoice;
+        }
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  } catch (error) {
+    console.warn("Google TTS audio system failure in MyVocabulary:", error);
+  }
+};
+
 export default function MyVocabulary({ tasks, completedTasks, soundEnabled }: MyVocabularyProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -351,6 +408,7 @@ export default function MyVocabulary({ tasks, completedTasks, soundEnabled }: My
     setActiveItem(item);
     setNotesText(allNotes[item.id] || "");
     playBeep(650, "sine", 0.08, soundEnabled);
+    speakWord(item.word);
   };
 
   const handleSaveNotes = () => {
@@ -537,12 +595,30 @@ export default function MyVocabulary({ tasks, completedTasks, soundEnabled }: My
                               {activeItem.topicName}
                             </span>
                           </div>
-                          <h4 className="text-xl font-black text-[var(--text-main)] tracking-tight">
+                          <h4 className="text-xl font-black text-[var(--text-main)] tracking-tight font-sans">
                             {activeItem.word}
                           </h4>
                           <p className="text-xs text-[#b91c1c] font-bold mt-0.5">
                             {activeItem.meaning}
                           </p>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => speakWord(activeItem.word)}
+                              className="bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200/50 dark:border-red-900/30 text-[#b91c1c] dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Nghe phát âm từ vựng tiếng Việt"
+                            >
+                              <span>🔊 Đọc Từ Vựng</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => speakWord(activeItem.example)}
+                              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-[var(--border-color)] text-[var(--text-main)] text-[10px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Nghe đọc ví dụ ngữ cảnh tiếng Việt"
+                            >
+                              <span>🔊 Đọc Ví Dụ (Tiếng Việt)</span>
+                            </button>
+                          </div>
                         </div>
 
                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
@@ -633,9 +709,22 @@ export default function MyVocabulary({ tasks, completedTasks, soundEnabled }: My
                                 {item.topicIcon}
                               </span>
                               <div className="flex flex-col overflow-hidden">
-                                <span className="text-xs font-black text-[var(--text-main)] tracking-tight truncate">
-                                  {item.word}
-                                </span>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-xs font-black text-[var(--text-main)] tracking-tight truncate">
+                                    {item.word}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      speakWord(item.word);
+                                    }}
+                                    className="p-1 rounded-full text-red-600 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] shrink-0"
+                                    title="Nghe phát âm"
+                                  >
+                                    🔊
+                                  </button>
+                                </div>
                                 <span className="text-[10px] text-[var(--text-sub)] truncate leading-normal">
                                   {item.meaning}
                                 </span>

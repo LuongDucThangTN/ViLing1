@@ -48,10 +48,18 @@ export default function App() {
   // Navigation & Tab States
   const [activeTab, setActiveTab] = useState<string>("luyentap");
   const [selectedTopic, setSelectedTopic] = useState<string>("tat_ca");
+  const [layoutMode, setLayoutMode] = useState<"phone" | "expanded">(() => {
+    return (localStorage.getItem("viling_layout_mode") as "phone" | "expanded") || "phone";
+  });
   const [splashFinished, setSplashFinished] = useState<boolean>(false);
   const [activeOpenTopic, setActiveOpenTopic] = useState<string | null>(null);
   const [luyenSubTab, setLuyenSubTab] = useState<"challenge" | "academy" | "vocab" | "fastquiz">("challenge");
   const [activeChallengeIndex, setActiveChallengeIndex] = useState<number>(0);
+
+  // Sync layout mode preferences
+  useEffect(() => {
+    localStorage.setItem("viling_layout_mode", layoutMode);
+  }, [layoutMode]);
 
   // Reset challenge index when changing topic or subtab
   useEffect(() => {
@@ -534,28 +542,144 @@ export default function App() {
     : tasks.filter((t) => t.topicId === selectedTopic);
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-slate-100 transition-colors duration-300 dark:bg-black font-sans leading-relaxed text-slate-900 select-none">
-      {/* Container simulating a mobile context screen, aligned responsive */}
-      <main className="w-full max-w-[420px] h-screen max-h-[896px] bg-[var(--app-bg)] relative shadow-2xl overflow-hidden flex flex-col transition-colors duration-300 border border-[var(--border-color)] sm:rounded-3xl">
+    <div className="flex justify-center items-center min-h-screen bg-[var(--bg-color)] transition-colors duration-300 font-sans leading-relaxed text-[var(--text-main)] select-none p-0 sm:p-4 lg:p-6 overflow-x-hidden">
+      <div className="flex flex-row items-center lg:items-stretch justify-center gap-6 w-full max-w-7xl h-screen sm:h-auto lg:h-[88vh] lg:max-h-[910px]">
         
-        {/* Splash overlay screen */}
-        <Splash onComplete={() => setSplashFinished(true)} />
+        {/* LEFT WIND SIDEBAR: Companion dashboard (Hidden on mobile) */}
+        <aside className="hidden lg:flex flex-col w-[300px] bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl p-5 shadow-xl transition-all duration-300 h-full overflow-y-auto scrollbar-none gap-5 shrink-0 text-left">
+          {/* User Info with Glowing Avatar */}
+          <div className="flex flex-col items-center text-center pb-4 border-b border-[var(--border-color)]">
+            <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center text-4xl shadow-md mb-3 select-none">
+              <span>🦉</span>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-2 border-[var(--card-bg)] flex items-center justify-center text-[10px] text-white font-black" title="Sẵn sàng học tập">
+                ✓
+              </div>
+            </div>
+            <h2 className="text-sm font-black tracking-tight text-[var(--text-main)]">Học viên ViLing</h2>
+            <span className="text-[9px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-500/10 px-2.5 py-0.5 rounded-full mt-1.5 select-none animate-pulse">
+              {score >= 150 ? "Huyền thoại" : score >= 80 ? "Cao thủ" : score >= 40 ? "Học giả" : "Khởi hành"}
+            </span>
+          </div>
 
-        {/* Dynamic Canvas Confetti */}
-        <canvas
-          ref={canvasRef}
-          id="confetti-canvas"
-          className="absolute inset-0 w-full h-full pointer-events-none z-50"
-        />
+          {/* Core App Layout Control Selector */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase text-[var(--text-sub)] tracking-wider">⚙️ Bố cục Không Gian</span>
+            <div className="grid grid-cols-2 bg-[var(--input-bg)] p-1 rounded-2xl border border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setLayoutMode("phone");
+                  if (soundEnabled) {
+                    try { playClickSound(soundEnabled); } catch(e){}
+                  }
+                }}
+                className={`py-2 px-1.5 text-center font-bold text-[11px] rounded-xl cursor-pointer transition-all ${
+                  layoutMode === "phone"
+                    ? "bg-[var(--card-bg)] text-[#b91c1c] shadow-xs font-black scale-102"
+                    : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                }`}
+              >
+                📱 Di động
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLayoutMode("expanded");
+                  if (soundEnabled) {
+                    try { playClickSound(soundEnabled); } catch(e){}
+                  }
+                }}
+                className={`py-2 px-1.5 text-center font-bold text-[11px] rounded-xl cursor-pointer transition-all ${
+                  layoutMode === "expanded"
+                    ? "bg-[var(--card-bg)] text-[#b91c1c] shadow-xs font-black scale-102"
+                    : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                }`}
+              >
+                💻 Máy tính
+              </button>
+            </div>
+          </div>
 
-        {/* Core Layout contents (Scrollable body above stick tab nav) */}
-        {splashFinished && (
-          <>
-            <div className="flex-1 pb-20 overflow-y-auto scrollbar-none relative">
+          {/* Quick Stats Dashboard */}
+          <div className="space-y-2.5">
+            <span className="text-[10px] font-black uppercase text-[var(--text-sub)] tracking-wider">📊 Thống Kê Nhanh</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-[var(--input-bg)] border border-[var(--border-color)] p-3 rounded-2xl flex flex-col items-center">
+                <span className="text-sm">⚡</span>
+                <span className="text-xs font-black text-[var(--text-main)] mt-0.5">{score} XP</span>
+                <span className="text-[9px] text-[var(--text-sub)] font-semibold mt-0.5 text-center">Tổng tích lũy</span>
+              </div>
+              <div className="bg-[var(--input-bg)] border border-[var(--border-color)] p-3 rounded-2xl flex flex-col items-center">
+                <span className="text-sm">🔥</span>
+                <span className="text-xs font-black text-[var(--text-main)] mt-0.5">{completedDates.length > 0 ? `${completedDates.length} ngày` : "0 ngày"}</span>
+                <span className="text-[9px] text-[var(--text-sub)] font-semibold mt-0.5 text-center">Chuỗi ngày</span>
+              </div>
+              <div className="bg-[var(--input-bg)] border border-[var(--border-color)] p-3 rounded-2xl flex flex-col items-center">
+                <span className="text-sm">🎯</span>
+                <span className="text-xs font-black text-[var(--text-main)] mt-0.5">{learnedTodayCount}/5 từ</span>
+                <span className="text-[9px] text-[var(--text-sub)] font-semibold mt-0.5 text-center">Mục tiêu ngày</span>
+              </div>
+              <div className="bg-[var(--input-bg)] border border-[var(--border-color)] p-3 rounded-2xl flex flex-col items-center">
+                <span className="text-sm">🏆</span>
+                <span className="text-xs font-black text-[var(--text-main)] mt-0.5">{completedTasks.length} bài</span>
+                <span className="text-[9px] text-[var(--text-sub)] font-semibold mt-0.5 text-center">Đã vượt qua</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Badges Collection (Gamified Showcase) */}
+          <div className="space-y-2.5 pt-2 border-t border-[var(--border-color)]">
+            <span className="text-[10px] font-black uppercase text-[var(--text-sub)] tracking-wider">🏆 Huy Hiệu Của Bạn</span>
+            <div className="space-y-2">
+              {BADGES.map((badge) => {
+                const isUnlocked = score >= badge.xpRequired;
+                return (
+                  <div
+                    key={badge.id}
+                    className={`flex items-center gap-3 p-2.5 border transition-all rounded-2xl ${
+                      isUnlocked
+                        ? "bg-gradient-to-r from-red-600/5 to-amber-500/5 border-red-500/20"
+                        : "opacity-45 border-dashed border-[var(--border-color)] bg-transparent select-none"
+                    }`}
+                  >
+                    <span className="text-2xl">{badge.icon}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[11px] font-black text-[var(--text-main)] leading-none flex items-center gap-1">
+                        {badge.title}
+                        {!isUnlocked && <span className="text-[9px]">🔒</span>}
+                      </span>
+                      <span className="text-[9px] text-[var(--text-sub)] font-semibold mt-1 truncate leading-none">
+                        {badge.description}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER INTERACTIVE SCREEN: The Main Applet Frame */}
+        <main className={`w-full ${layoutMode === "expanded" ? "lg:max-w-[760px] xl:max-w-[820px]" : "max-w-[420px]"} h-screen sm:h-[85vh] sm:max-h-[896px] lg:h-full bg-[var(--app-bg)] relative shadow-2xl overflow-hidden flex flex-col transition-all duration-300 border border-[var(--border-color)] sm:rounded-3xl shrink-0`}>
+          
+          {/* Splash overlay screen */}
+          <Splash onComplete={() => setSplashFinished(true)} />
+
+          {/* Dynamic Canvas Confetti */}
+          <canvas
+            ref={canvasRef}
+            id="confetti-canvas"
+            className="absolute inset-0 w-full h-full pointer-events-none z-50"
+          />
+
+          {/* Core Layout contents (Scrollable body above stick tab nav) */}
+          {splashFinished && (
+            <>
+              <div className="flex-1 pb-32 overflow-y-auto scrollbar-none relative">
               
               {/* Tab: Luyện tập (Study) */}
               {activeTab === "luyentap" && (
-                <div className="p-5 animate-fade-in flex flex-col h-full">
+                <div className="p-5 animate-fade-in flex flex-col min-h-full">
                   
                   {/* Page header */}
                   <div className="flex items-center justify-between mb-4 shrink-0">
@@ -681,198 +805,225 @@ export default function App() {
                   </div>
 
                   {/* SUB-TAB CONTENTS Rendering Area */}
-                  <div className="space-y-4">
-                    {luyenSubTab === "challenge" && (
-                      <div className="space-y-4 animate-fade-in">
-                        {/* Category Chips Selection Selector */}
-                        <TopicChips
-                          topics={TOPICS}
-                          selectedTopic={selectedTopic}
-                          setSelectedTopic={(id) => {
-                            playClickSound(soundEnabled);
-                            setSelectedTopic(id);
-                          }}
-                        />
+                  <div className="space-y-4 overflow-hidden">
+                    <AnimatePresence mode="wait">
+                      {luyenSubTab === "challenge" && (
+                        <motion.div
+                          key="challenge"
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -15 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                          className="space-y-4"
+                        >
+                          {/* Category Chips Selection Selector */}
+                          <TopicChips
+                            topics={TOPICS}
+                            selectedTopic={selectedTopic}
+                            setSelectedTopic={(id) => {
+                              playClickSound(soundEnabled);
+                              setSelectedTopic(id);
+                            }}
+                          />
 
-                        {/* Word of the Day widget block */}
-                        <WordOfTheDay 
-                          soundEnabled={soundEnabled} 
-                          playClick={() => playClickSound(soundEnabled)}
-                        />
+                          {/* Word of the Day widget block */}
+                          <WordOfTheDay 
+                            soundEnabled={soundEnabled} 
+                            playClick={() => playClickSound(soundEnabled)}
+                          />
 
-                        {/* AI Challenge Generator Banner */}
-                        <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-4.5 rounded-2xl shadow-md relative overflow-hidden flex flex-col gap-3">
-                          <p className="text-[10px] uppercase font-black tracking-widest text-[#ffd700]">THỬ THÁCH TRÍ TUỆ NHÂN TẠO</p>
-                          <h3 className="font-extrabold text-sm leading-snug">
-                            Học từ vựng cấp tiến tích hợp AI
-                          </h3>
-                          <p className="text-xxs opacity-90 leading-normal">
-                            Nhờ trợ lý ảo Gemini viết riêng cho bạn các bài đọc hiểu và trắc nghiệm thực tế xoay quanh chủ đề đã chọn ngay lập tức!
-                          </p>
-
-                          <button
-                            disabled={isAiGenerating}
-                            onClick={handleAiGenerateTask}
-                            className="cursor-pointer w-full bg-white text-[#b91c1c] font-black text-xs py-3 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 shadow active:scale-98 disabled:opacity-75 focus:outline-none"
-                          >
-                            {isAiGenerating ? (
-                              <>
-                                <svg className="animate-spin h-4.5 w-4.5 text-[#b91c1c]" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Gemini đang soạn câu hỏi...</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>⚡ Tạo thử thách mới với AI</span>
-                              </>
-                            )}
-                          </button>
-
-                          {selectedTopic !== "tat_ca" && (
-                            <button
-                              onClick={() => {
-                                playClickSound(soundEnabled);
-                                setLuyenSubTab("academy");
-                                setActiveOpenTopic(selectedTopic);
-                              }}
-                              className="cursor-pointer mt-2.5 w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black text-[11px] py-2.5 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] outline-none"
-                            >
-                              📚 Cẩm nang & Sửa lỗi: {TOPICS.find((t) => t.id === selectedTopic)?.name} 🏁
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Tasks Card Feed List */}
-                        {isTasksLoading ? (
-                          <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <svg className="animate-spin h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="text-xs text-[var(--text-sub)] font-semibold">Đang tải ngân hàng câu hỏi...</span>
-                          </div>
-                        ) : filteredTasks.length === 0 ? (
-                          <div className="text-center py-16 bg-slate-500/5 rounded-2xl border border-dashed border-[var(--border-color)]">
-                            <span className="text-4xl mb-3 block">🚧</span>
-                            <h4 className="font-bold text-sm text-[var(--text-main)]">Thử thách chưa có sẵn</h4>
-                            <p className="text-xxs text-[var(--text-sub)] max-w-xs mx-auto px-4 mt-1">
-                              Chưa có bài ôn nào cho danh mục này. Hãy ấn nút tạo bài luyện AI phía trên để Gemini viết tặng bạn câu hỏi thiết thực!
+                          {/* AI Challenge Generator Banner */}
+                          <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-4.5 rounded-2xl shadow-md relative overflow-hidden flex flex-col gap-3">
+                            <p className="text-[10px] uppercase font-black tracking-widest text-[#ffd700]">THỬ THÁCH TRÍ TUỆ NHÂN TẠO</p>
+                            <h3 className="font-extrabold text-sm leading-snug">
+                              Học từ vựng cấp tiến tích hợp AI
+                            </h3>
+                            <p className="text-xxs opacity-90 leading-normal">
+                              Nhờ trợ lý ảo Gemini viết riêng cho bạn các bài đọc hiểu và trắc nghiệm thực tế xoay quanh chủ đề đã chọn ngay lập tức!
                             </p>
+
+                            <button
+                              disabled={isAiGenerating}
+                              onClick={handleAiGenerateTask}
+                              className="cursor-pointer w-full bg-white text-[#b91c1c] font-black text-xs py-3 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 shadow active:scale-98 disabled:opacity-75 focus:outline-none"
+                            >
+                              {isAiGenerating ? (
+                                <>
+                                  <svg className="animate-spin h-4.5 w-4.5 text-[#b91c1c]" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>Gemini đang soạn câu hỏi...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>⚡ Tạo thử thách mới với AI</span>
+                                </>
+                              )}
+                            </button>
+
+                            {selectedTopic !== "tat_ca" && (
+                              <button
+                                onClick={() => {
+                                  playClickSound(soundEnabled);
+                                  setLuyenSubTab("academy");
+                                  setActiveOpenTopic(selectedTopic);
+                                }}
+                                className="cursor-pointer mt-2.5 w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black text-[11px] py-2.5 rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] outline-none"
+                              >
+                                📚 Cẩm nang & Sửa lỗi: {TOPICS.find((t) => t.id === selectedTopic)?.name} 🏁
+                              </button>
+                            )}
                           </div>
-                        ) : (
-                          (() => {
-                            const currentIndexClamped = Math.min(activeChallengeIndex, filteredTasks.length - 1);
-                            const currentTask = filteredTasks[currentIndexClamped];
-                            const hasNext = currentIndexClamped < filteredTasks.length - 1;
-                            const completedCount = filteredTasks.filter(t => completedTasks.includes(t.id)).length;
-                            const progressPercent = Math.round((completedCount / filteredTasks.length) * 100);
 
-                            return (
-                              <div className="space-y-4">
-                                {/* Tasks progress tracker */}
-                                <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-xs">
-                                  <div className="flex items-center justify-between text-xxs font-black text-[var(--text-sub)] tracking-wider uppercase mb-2">
-                                    <span>🚀 TIẾN TRÌNH LUYỆN ĐỀ:</span>
-                                    <span className="text-[#b91c1c] dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full select-none">
-                                      Câu {currentIndexClamped + 1} / {filteredTasks.length} ({progressPercent}% đạt)
-                                    </span>
+                          {/* Tasks Card Feed List */}
+                          {isTasksLoading ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-3">
+                              <svg className="animate-spin h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-xs text-[var(--text-sub)] font-semibold">Đang tải ngân hàng câu hỏi...</span>
+                            </div>
+                          ) : filteredTasks.length === 0 ? (
+                            <div className="text-center py-16 bg-slate-500/5 rounded-2xl border border-dashed border-[var(--border-color)]">
+                              <span className="text-4xl mb-3 block">🚧</span>
+                              <h4 className="font-bold text-sm text-[var(--text-main)]">Thử thách chưa có sẵn</h4>
+                              <p className="text-xxs text-[var(--text-sub)] max-w-xs mx-auto px-4 mt-1">
+                                Chưa có bài ôn nào cho danh mục này. Hãy ấn nút tạo bài luyện AI phía trên để Gemini viết tặng bạn câu hỏi thiết thực!
+                              </p>
+                            </div>
+                          ) : (
+                            (() => {
+                              const currentIndexClamped = Math.min(activeChallengeIndex, filteredTasks.length - 1);
+                              const currentTask = filteredTasks[currentIndexClamped];
+                              const hasNext = currentIndexClamped < filteredTasks.length - 1;
+                              const completedCount = filteredTasks.filter(t => completedTasks.includes(t.id)).length;
+                              const progressPercent = Math.round((completedCount / filteredTasks.length) * 100);
+
+                              return (
+                                <div className="space-y-4">
+                                  {/* Tasks progress tracker */}
+                                  <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-xs">
+                                    <div className="flex items-center justify-between text-xxs font-black text-[var(--text-sub)] tracking-wider uppercase mb-2">
+                                      <span>🚀 TIẾN TRÌNH LUYỆN ĐỀ:</span>
+                                      <span className="text-[#b91c1c] dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full select-none">
+                                        Câu {currentIndexClamped + 1} / {filteredTasks.length} ({progressPercent}% đạt)
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1.5 mb-1 select-none">
+                                      <div
+                                        className="h-full bg-gradient-to-r from-[#b91c1c] to-red-600 rounded-full transition-all duration-300"
+                                        style={{ width: `${progressPercent}%` }}
+                                      />
+                                    </div>
+                                    <div className="flex justify-between text-[9px] font-bold text-[var(--text-sub)]">
+                                      <span>Bắt đầu</span>
+                                      <span>Hoàn thành {completedCount} / {filteredTasks.length} bài</span>
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-slate-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1.5 mb-1 select-none">
-                                    <div
-                                      className="h-full bg-gradient-to-r from-[#b91c1c] to-red-600 rounded-full transition-all duration-300"
-                                      style={{ width: `${progressPercent}%` }}
-                                    />
-                                  </div>
-                                  <div className="flex justify-between text-[9px] font-bold text-[var(--text-sub)]">
-                                    <span>Bắt đầu</span>
-                                    <span>Hoàn thành {completedCount} / {filteredTasks.length} bài</span>
-                                  </div>
+
+                                  <AnimatePresence mode="wait">
+                                    <motion.div
+                                      key={currentTask.id}
+                                      initial={{ opacity: 0, x: 15 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      exit={{ opacity: 0, x: -15 }}
+                                      transition={{ duration: 0.2 }}
+                                    >
+                                      <TaskCard
+                                        task={currentTask}
+                                        isCompleted={completedTasks.includes(currentTask.id)}
+                                        onComplete={handleTaskComplete}
+                                        soundEnabled={soundEnabled}
+                                        playSuccess={() => playSuccessSound(soundEnabled)}
+                                        playFail={() => playFailSound(soundEnabled)}
+                                        onMistake={handleMistake}
+                                        onPracticeTopic={(topicId) => {
+                                          setLuyenSubTab("academy");
+                                          setActiveOpenTopic(topicId);
+                                        }}
+                                        hasNext={hasNext}
+                                        onNext={() => {
+                                          playClickSound(soundEnabled);
+                                          if (hasNext) {
+                                            setActiveChallengeIndex(currentIndexClamped + 1);
+                                          } else {
+                                            // Wrap or complete
+                                            setActiveChallengeIndex(0);
+                                          }
+                                        }}
+                                      />
+                                    </motion.div>
+                                  </AnimatePresence>
                                 </div>
+                              );
+                            })()
+                          )}
+                        </motion.div>
+                      )}
 
-                                <AnimatePresence mode="wait">
-                                  <motion.div
-                                    key={currentTask.id}
-                                    initial={{ opacity: 0, x: 15 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -15 }}
-                                    transition={{ duration: 0.2 }}
-                                  >
-                                    <TaskCard
-                                      task={currentTask}
-                                      isCompleted={completedTasks.includes(currentTask.id)}
-                                      onComplete={handleTaskComplete}
-                                      soundEnabled={soundEnabled}
-                                      playSuccess={() => playSuccessSound(soundEnabled)}
-                                      playFail={() => playFailSound(soundEnabled)}
-                                      onMistake={handleMistake}
-                                      onPracticeTopic={(topicId) => {
-                                        setLuyenSubTab("academy");
-                                        setActiveOpenTopic(topicId);
-                                      }}
-                                      hasNext={hasNext}
-                                      onNext={() => {
-                                        playClickSound(soundEnabled);
-                                        if (hasNext) {
-                                          setActiveChallengeIndex(currentIndexClamped + 1);
-                                        } else {
-                                          // Wrap or complete
-                                          setActiveChallengeIndex(0);
-                                        }
-                                      }}
-                                    />
-                                  </motion.div>
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })()
-                        )}
-                      </div>
-                    )}
+                      {luyenSubTab === "academy" && (
+                        <motion.div
+                          key="academy"
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -15 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                        >
+                          <TopicLessons
+                            tasks={tasks}
+                            completedTasks={completedTasks}
+                            mistakes={mistakes}
+                            onComplete={handleTaskComplete}
+                            setMistakes={setMistakes}
+                            setTasks={setTasks}
+                            soundEnabled={soundEnabled}
+                            score={score}
+                            setScore={setScore}
+                            setXpHistory={setXpHistory}
+                            activeOpenTopic={activeOpenTopic}
+                            setActiveOpenTopic={setActiveOpenTopic}
+                            onWordLearned={() => setLearnedTodayCount((c) => c + 1)}
+                          />
+                        </motion.div>
+                      )}
 
-                    {luyenSubTab === "academy" && (
-                      <div className="animate-fade-in">
-                        <TopicLessons
-                          tasks={tasks}
-                          completedTasks={completedTasks}
-                          mistakes={mistakes}
-                          onComplete={handleTaskComplete}
-                          setMistakes={setMistakes}
-                          setTasks={setTasks}
-                          soundEnabled={soundEnabled}
-                          score={score}
-                          setScore={setScore}
-                          setXpHistory={setXpHistory}
-                          activeOpenTopic={activeOpenTopic}
-                          setActiveOpenTopic={setActiveOpenTopic}
-                          onWordLearned={() => setLearnedTodayCount((c) => c + 1)}
-                        />
-                      </div>
-                    )}
+                      {luyenSubTab === "vocab" && (
+                        <motion.div
+                          key="vocab"
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -15 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                        >
+                          <MyVocabulary
+                            tasks={tasks}
+                            completedTasks={completedTasks}
+                            soundEnabled={soundEnabled}
+                          />
+                        </motion.div>
+                      )}
 
-                    {luyenSubTab === "vocab" && (
-                      <div className="animate-fade-in">
-                        <MyVocabulary
-                          tasks={tasks}
-                          completedTasks={completedTasks}
-                          soundEnabled={soundEnabled}
-                        />
-                      </div>
-                    )}
-
-                    {luyenSubTab === "fastquiz" && (
-                      <div className="animate-fade-in">
-                        <FastQuizMode
-                          tasks={tasks}
-                          onComplete={handleTaskComplete}
-                          soundEnabled={soundEnabled}
-                          playSuccess={() => playSuccessSound(soundEnabled)}
-                          playFail={() => playFailSound(soundEnabled)}
-                          selectedTopic={selectedTopic}
-                        />
-                      </div>
-                    )}
+                      {luyenSubTab === "fastquiz" && (
+                        <motion.div
+                          key="fastquiz"
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -15 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                        >
+                          <FastQuizMode
+                            tasks={tasks}
+                            onComplete={handleTaskComplete}
+                            soundEnabled={soundEnabled}
+                            playSuccess={() => playSuccessSound(soundEnabled)}
+                            playFail={() => playFailSound(soundEnabled)}
+                            selectedTopic={selectedTopic}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <div className="text-center py-6 shrink-0 mt-2">
@@ -947,6 +1098,94 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* RIGHT WIND SIDEBAR: Analytics & Insight Cards (Hidden on mobile) */}
+      <aside className="hidden lg:flex flex-col w-[300px] bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl p-5 shadow-xl transition-all duration-300 h-full overflow-y-auto scrollbar-none gap-5 shrink-0 text-left">
+        {/* XP Progress Insights Card */}
+        <div className="space-y-2.5">
+          <span className="text-[10px] font-black uppercase text-[var(--text-sub)] tracking-wider">📈 Biểu đồ Điểm XP</span>
+          <div className="bg-[var(--input-bg)] border border-[var(--border-color)] p-4 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between text-[10px] font-bold text-[var(--text-sub)]">
+              <span>Lịch sử tích lũy</span>
+              <span className="text-red-600 dark:text-red-400 font-extrabold">{score} XP</span>
+            </div>
+            
+            {/* Visualized pure CSS mini milestone bars */}
+            <div className="flex items-end justify-between h-20 px-2 pt-2 gap-2 select-none">
+              {(() => {
+                const itemsToShow = xpHistory.slice(-5);
+                // Ensure we show at least 5 columns even with placeholder
+                const filledItems = Array.from({ length: 5 }, (_, idx) => {
+                  return itemsToShow[idx] || { date: "-", xp: 0 };
+                });
+                const maxVal = Math.max(...filledItems.map(x => x.xp), 15);
+                
+                return filledItems.map((pt, index) => {
+                  const percent = Math.min(100, Math.round((pt.xp / maxVal) * 100));
+                  return (
+                    <div key={index} className="flex-1 flex flex-col items-center gap-1 group relative">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-1 bg-neutral-900 text-white text-[8px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-all scale-95 origin-bottom z-50 whitespace-nowrap">
+                        {pt.xp} XP
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-neutral-800 rounded-t-lg overflow-hidden h-12 flex items-end">
+                        <div
+                          className="bg-gradient-to-t from-red-600 to-orange-500 w-full rounded-t-md transition-all duration-500 ease-out"
+                          style={{ height: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="text-[8px] text-[var(--text-sub)] font-extrabold truncate w-full text-center leading-none">
+                        {pt.date.split(" (")[0]}
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* SCAMPER Mental Sandbox Reminders */}
+        <div className="space-y-2.5 flex-1 flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">🧠 Tư duy Đột phá SCAMPER</span>
+            <div className="space-y-1.5 max-h-[380px] overflow-y-auto scrollbar-none pr-1 text-left">
+              {[
+                { l: "S", t: "Substitute", d: "Thay thế", desc: "Đổi thành phần, cách dịch bằng giải pháp khác." },
+                { l: "C", t: "Combine", d: "Kết hợp", desc: "Ghép ghép từ vựng với thành ngữ hay ngữ cảnh." },
+                { l: "A", t: "Adapt", d: "Thích ứng", desc: "Áp dụng linh hoạt từ vựng trong đời sống." },
+                { l: "M", t: "Modify", d: "Sửa đổi", desc: "Tăng, giảm cường điệu hoặc cấu lập từ ngữ mới." },
+                { l: "P", t: "Put to Use", d: "Dùng mục đích khác", desc: "Áp dụng từ vào văn phong chuyên biệt khác biệt." },
+                { l: "E", t: "Eliminate", d: "Loại bỏ", desc: "Rút gọn, cắt tỉa từ thừa, giữ ý chính cốt lõi sâu sắc." },
+                { l: "R", t: "Reverse", d: "Đảo ngược", desc: "Đảo ngược cấu trúc câu hay vế để tăng biểu đạt." }
+              ].map((item) => (
+                <div key={item.l} className="bg-[var(--input-bg)] border border-[var(--border-color)] p-2 rounded-xl flex items-start gap-2.5 hover:border-red-500/20 transition-all duration-150">
+                  <span className="w-5 h-5 rounded bg-[#b91c1c] text-white flex items-center justify-center font-bold text-[11px] shrink-0 font-mono">
+                    {item.l}
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-black text-[var(--text-main)] leading-none">
+                      {item.t} ({item.d})
+                    </span>
+                    <span className="text-[9px] text-[var(--text-sub)] font-semibold leading-normal mt-0.5">
+                      {item.desc}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-red-600/5 to-amber-500/5 border border-red-500/10 p-3 rounded-2xl mt-4">
+            <span className="text-[9px] font-black text-[#b91c1c] uppercase block">💡 Gợi Ý Luyện Tập</span>
+            <p className="text-[10px] text-[var(--text-sub)] font-semibold leading-relaxed mt-1">
+              Nhấp nút 🔊 ở danh sách từ vựng để nghe giọng phát âm chuẩn bản xứ cho cả tiếng Việt và tiếng Anh.
+            </p>
+          </div>
+        </div>
+      </aside>
+
     </div>
+  </div>
   );
 }

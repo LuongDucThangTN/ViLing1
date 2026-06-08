@@ -39,6 +39,33 @@ export default function SettingsView({
   const [confirmResetType, setConfirmResetType] = React.useState<"progress" | "full" | null>(null);
   const [isResetExecuting, setIsResetExecuting] = React.useState(false);
 
+  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = React.useState<string>(() => {
+    return localStorage.getItem("viling_selected_voice") || "google-tts";
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    const updateVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      const viVoices = allVoices.filter((v) => {
+        const l = v.lang.toLowerCase();
+        return l.startsWith("vi") || l.includes("vietnam") || l.includes("viet");
+      });
+      setVoices(viVoices);
+    };
+
+    updateVoices();
+    if ("onvoiceschanged" in window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    localStorage.setItem("viling_selected_voice", selectedVoice);
+  }, [selectedVoice]);
+
   React.useEffect(() => {
     localStorage.setItem("viling_reminder_enabled", String(reminderEnabled));
   }, [reminderEnabled]);
@@ -165,6 +192,75 @@ export default function SettingsView({
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-red-600"></div>
             </label>
+          </div>
+
+          {/* Voice Selector Dropdown */}
+          <div className="flex flex-col p-4 bg-transparent gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-[var(--text-main)]">Giọng phát âm Tiếng Việt</div>
+                <div className="text-[10px] text-[var(--text-sub)]">Chọn giọng đọc từ vựng từ hệ thống hoặc máy dịch</div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-1">
+              <select
+                id="voice-selector"
+                value={selectedVoice}
+                onChange={(e) => setSelectedVoice(e.target.value)}
+                className="flex-1 rounded-xl border border-[var(--border-color)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-main)] font-semibold focus:outline-none focus:border-red-600 cursor-pointer"
+              >
+                <option value="google-tts">🟢 Mặc định (Google Stream - Đọc tự nhiên nhất)</option>
+                {voices.length === 0 ? (
+                  <option value="" disabled className="text-xs text-[var(--text-sub)]">
+                    (Không tìm thấy giọng tiếng Việt cục bộ khác)
+                  </option>
+                ) : (
+                  voices.map((v) => (
+                    <option key={v.name} value={v.name} className="text-xs">
+                      🔊 {v.name} ({v.lang})
+                    </option>
+                  ))
+                )}
+              </select>
+              
+              <button
+                id="btn-voice-test"
+                type="button"
+                onClick={() => {
+                  const testText = "Kính chào anh chị học viên, chúc anh chị một ngày học tiếng Việt đầy niềm vui và ý nghĩa!";
+                  if (selectedVoice === "google-tts") {
+                    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(testText)}`;
+                    const audio = new Audio(ttsUrl);
+                    audio.play().catch(err => {
+                      console.warn("Google TTS test failed:", err);
+                      // fallback to standard browser TTS
+                      if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance(testText);
+                        utterance.lang = "vi-VN";
+                        window.speechSynthesis.speak(utterance);
+                      }
+                    });
+                  } else {
+                    if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+                      window.speechSynthesis.cancel();
+                      const utterance = new SpeechSynthesisUtterance(testText);
+                      utterance.lang = "vi-VN";
+                      utterance.rate = 0.88;
+                      const matchingVoice = voices.find(v => v.name === selectedVoice);
+                      if (matchingVoice) {
+                        utterance.voice = matchingVoice;
+                      }
+                      window.speechSynthesis.speak(utterance);
+                    }
+                  }
+                }}
+                className="bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200/50 dark:border-red-900/30 text-[#b91c1c] dark:text-red-400 text-xs font-black px-4 py-2 rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-1 shrink-0"
+                title="Nghe thử giọng nói đã chọn"
+              >
+                <span>🔊 Nghe Thử</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -158,6 +158,8 @@ interface WordOfTheDayProps {
   playClick: () => void;
 }
 
+let wotdActiveAudio: HTMLAudioElement | null = null;
+
 export default function WordOfTheDay({ soundEnabled, playClick }: WordOfTheDayProps) {
   // Use today's calendar date as a seed to select the daily word
   const getDailyIndex = () => {
@@ -203,36 +205,90 @@ export default function WordOfTheDay({ soundEnabled, playClick }: WordOfTheDayPr
 
   // Text-To-Speech to read aloud the Vietnamese word
   const handleSpeak = () => {
-    if (!activeWord || isSpeaking) return;
+    if (!activeWord) return;
     
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel(); // Stop active speaking first
-        const utterance = new SpeechSynthesisUtterance(activeWord.word);
-        utterance.lang = "vi-VN";
-        utterance.rate = 0.9; // Natural paced flow
+    try {
+      if (wotdActiveAudio) {
+        wotdActiveAudio.pause();
+        wotdActiveAudio = null;
+      }
 
-        utterance.onstart = () => {
+      const cleanedText = activeWord.word
+        .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF])/g, '')
+        .replace(/[()_#/[\]]/g, ' ')
+        .trim();
+        
+      if (!cleanedText) return;
+
+      const selectedVoiceName = localStorage.getItem("viling_selected_voice") || "google-tts";
+
+      if (selectedVoiceName === "google-tts") {
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(cleanedText)}`;
+        
+        const audio = new Audio(ttsUrl);
+        wotdActiveAudio = audio;
+        
+        audio.onplay = () => {
           setIsSpeaking(true);
         };
-        utterance.onend = () => {
+        audio.onended = () => {
           setIsSpeaking(false);
         };
-        utterance.onerror = () => {
+        audio.onerror = () => {
           setIsSpeaking(false);
         };
 
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn("Speech Synthesis has been blocked by environment limits:", err);
-        setIsSpeaking(false);
+        audio.play().catch(err => {
+          console.warn("Google TTS audio play failed, falling back to Web Speech Synthesis:", err);
+          // Fallback
+          if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(cleanedText);
+            utterance.lang = "vi-VN";
+            utterance.rate = 0.88;
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+            window.speechSynthesis.speak(utterance);
+          } else {
+            setIsSpeaking(false);
+          }
+        });
+      } else {
+        if (typeof window !== "undefined" && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(cleanedText);
+          utterance.lang = "vi-VN";
+          utterance.rate = 0.88;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+          utterance.onstart = () => setIsSpeaking(true);
+          utterance.onend = () => setIsSpeaking(false);
+          utterance.onerror = () => setIsSpeaking(false);
+
+          const voices = window.speechSynthesis.getVoices();
+          const matchingVoice = voices.find(v => v.name === selectedVoiceName);
+          if (matchingVoice) {
+            utterance.voice = matchingVoice;
+          }
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsSpeaking(false);
+        }
       }
+    } catch (err) {
+      console.warn("Speech Synthesis or Google TTS failure:", err);
+      setIsSpeaking(false);
     }
   };
 
   // Stop speaking when user moves/changes word
   useEffect(() => {
     return () => {
+      if (wotdActiveAudio) {
+        wotdActiveAudio.pause();
+        wotdActiveAudio = null;
+      }
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
