@@ -728,6 +728,24 @@ export default function TopicLessons({
   const [selectedSlotIdx, setSelectedSlotIdx] = useState<number>(1);
   const [isGeneratingSlot, setIsGeneratingSlot] = useState<Record<string, boolean>>({});
 
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isCachingAll, setIsCachingAll] = useState<boolean>(false);
+  const [cacheProgress, setCacheProgress] = useState<number>(0);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
+    }
+  }, []);
+
   // Helper inside component to parse trailing number from task ID to get its slot index
   const getTaskIndex = (task: Task): number => {
     const match = task.id.match(/\d+$/);
@@ -779,6 +797,74 @@ export default function TopicLessons({
     } finally {
       setIsGeneratingSlot(prev => ({ ...prev, [slotKey]: false }));
     }
+  };
+
+  const handleCacheAllSlots = async () => {
+    if (!activeOpenTopic || !setTasks || isCachingAll) return;
+    const activeTopicObj = STATIC_TOPICS.find((t) => t.id === activeOpenTopic);
+    if (!activeTopicObj) return;
+
+    const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+    const missingIndices: number[] = [];
+
+    for (let i = 0; i < 10; i++) {
+      const currentNum = startIdx + i;
+      const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${currentNum}`;
+      if (!tasks.some(t => t.id === targetId)) {
+        missingIndices.push(currentNum);
+      }
+    }
+
+    if (missingIndices.length === 0) {
+      alert("Tất cả 10 bài học ở cấp độ này đã được tải và ghi nhớ vào cache bộ nhớ đệm thành công!");
+      return;
+    }
+
+    setIsCachingAll(true);
+    setCacheProgress(0);
+
+    let completedCount = 0;
+    const totalToDownload = missingIndices.length;
+
+    for (const idx of missingIndices) {
+      if (!navigator.onLine) {
+        alert("Mất kết nối mạng! Không thể tiếp tục tải các bài học mới để ghi nhớ vào cache.");
+        break;
+      }
+      const slotKey = `${activeOpenTopic}_${selectedScamperCode}_${idx}`;
+      setIsGeneratingSlot(prev => ({ ...prev, [slotKey]: true }));
+      try {
+        const res = await fetch("/api/ai/generate-task-by-slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topicId: activeOpenTopic,
+            typeCode: selectedScamperCode,
+            index: idx,
+            topicName: activeTopicObj.name,
+            difficulty: selectedDifficulty
+          })
+        });
+
+        const json = await res.json();
+        if (json.status === "success" && json.data) {
+          const newTask = json.data;
+          setTasks(prev => {
+            const cleaned = prev.filter(t => t.id !== newTask.id);
+            return [...cleaned, newTask];
+          });
+        }
+      } catch (e) {
+        console.error(`Error caching slot index ${idx}:`, e);
+      } finally {
+        setIsGeneratingSlot(prev => ({ ...prev, [slotKey]: false }));
+        completedCount++;
+        setCacheProgress(Math.round((completedCount / totalToDownload) * 100));
+      }
+    }
+
+    playBeep(880, "sine", 0.35, soundEnabled);
+    setIsCachingAll(false);
   };
 
   const handleFetchModalHint = async (task: Task) => {
@@ -1943,9 +2029,56 @@ export default function TopicLessons({
 
                               {/* 3. 10-Task Interactive Grid */}
                               <div>
-                                <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
-                                  2) Bản đồ bồi dưỡng: 10 bài tập thuộc cấp độ {selectedDifficulty === "easy" ? "DỄ" : selectedDifficulty === "medium" ? "TRUNG BÌNH" : "KHÓ"} (Mã {selectedScamperCode})
-                                </span>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                                  <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider">
+                                    2) Bản đồ bồi dưỡng: 10 bài tập thuộc cấp độ {selectedDifficulty === "easy" ? "DỄ" : selectedDifficulty === "medium" ? "TRUNG BÌNH" : "KHÓ"} (Mã {selectedScamperCode})
+                                  </span>
+                                  
+                                  {/* Cache System Badge & Controllers */}
+                                  <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto text-[9px]">
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-bold border ${
+                                      isOnline 
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" 
+                                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                    }`}>
+                                      {isOnline ? "🟢 Trực Tuyến" : "📡 Ngoại Tuyến (Bộ nhớ đệm)"}
+                                    </span>
+
+                                    {(() => {
+                                      const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+                                      const loadedCount = Array.from({ length: 10 }, (_, i) => {
+                                        const currentNum = startIdx + i;
+                                        const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${currentNum}`;
+                                        return tasks.some(t => t.id === targetId);
+                                      }).filter(Boolean).length;
+
+                                      return (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-extrabold text-[var(--text-main)] px-1.5 py-0.5 bg-slate-500/10 rounded">
+                                            💾 Đã Cache: {loadedCount}/10 bài
+                                          </span>
+                                          {isCachingAll ? (
+                                            <div className="flex items-center gap-1 bg-red-500/10 text-red-600 px-2 py-0.5 border border-red-500/20 rounded-md">
+                                              <span className="w-2.5 h-2.5 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin"></span>
+                                              <span className="font-bold">Đang lưu: {cacheProgress}%</span>
+                                            </div>
+                                          ) : isOnline && loadedCount < 10 ? (
+                                            <button
+                                              type="button"
+                                              onClick={handleCacheAllSlots}
+                                              className="cursor-pointer bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black px-2 py-0.5 rounded-md text-[8.5px] uppercase tracking-wide transition-all shadow-xs"
+                                              title="Tải đầy đủ 10 bài bồi dưỡng sáng tạo của kỹ thuật hiện tại về lưu trữ cục bộ"
+                                            >
+                                              📥 Tải toàn bộ Offline
+                                            </button>
+                                          ) : loadedCount === 10 ? (
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">✓ Sẵn Sàng Sáng Tạo Offline</span>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
                                 <div className="grid grid-cols-5 md:grid-cols-10 gap-1.5 matches-box">
                                   {(() => {
                                     const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;

@@ -148,19 +148,44 @@ export default function App() {
     localStorage.setItem("viling_theme", darkMode ? "dark" : "light");
   }, [darkMode]);
 
+  // Save AI generated tasks to local cache
+  useEffect(() => {
+    if (tasks && tasks.length > 0) {
+      const generatedList = tasks.filter(t => t.isAiGenerated);
+      localStorage.setItem("viling_cached_tasks", JSON.stringify(generatedList));
+    }
+  }, [tasks]);
+
   // Load Initial Tasks on Mount
   useEffect(() => {
     async function fetchTasks() {
+      let cachedTasks: Task[] = [];
+      try {
+        const rawCached = localStorage.getItem("viling_cached_tasks");
+        if (rawCached) {
+          cachedTasks = JSON.parse(rawCached);
+        }
+      } catch (e) {
+        console.warn("Lỗi đọc viling_cached_tasks từ bộ nhớ đệm:", e);
+      }
+
       try {
         const res = await fetch("/api/tasks/list");
         const json = await res.json();
         if (json.status === "success" && Array.isArray(json.data)) {
-          setTasks(json.data);
+          const merged = [...json.data];
+          const mergedIds = new Set(merged.map(t => t.id));
+          for (const t of cachedTasks) {
+            if (!mergedIds.has(t.id)) {
+              merged.push(t);
+            }
+          }
+          setTasks(merged);
         }
       } catch (err) {
         console.error("Task list download error, falling back locally:", err);
         // Fallback local replica of initial static tasks
-        setTasks([
+        const fallbackTasks: Task[] = [
           {
             id: "danh_lam_q1",
             topicId: "danh_lam",
@@ -323,7 +348,15 @@ export default function App() {
             correctIndex: 0,
             successMsg: "Rất xuất sắc! Thị trường lao động là khái niệm trung tâm của hoạt động tuyển dụng và phát triển nghề nghiệp."
           }
-        ]);
+        ];
+        const merged = [...fallbackTasks];
+        const mergedIds = new Set(merged.map(t => t.id));
+        for (const t of cachedTasks) {
+          if (!mergedIds.has(t.id)) {
+            merged.push(t);
+          }
+        }
+        setTasks(merged);
       } finally {
         setIsTasksLoading(false);
       }

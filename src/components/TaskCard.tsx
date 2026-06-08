@@ -169,19 +169,31 @@ export default function TaskCard({
       }
     } catch (err: any) {
       console.error(err);
-      playFail();
-      setWrongAttempts((prev) => {
-        const next = prev + 1;
-        if (next >= 2) {
-          handleFetchHint();
-        }
-        return next;
-      });
-      setFeedback({
-        isValid: false,
-        explanation: "Hệ thống AI bận hoặc chưa thể xác nhận. Hãy thử nhập lại từ đồng nghĩa rõ nghĩa hơn!",
-        xpEarned: 0,
-      });
+      
+      const isMatch = task.answers?.some(ans => userVal.toLowerCase().trim() === ans.toLowerCase().trim() || userVal.toLowerCase().trim().includes(ans.toLowerCase().trim()));
+      if (isMatch) {
+        playSuccess();
+        onComplete(task.id, 10);
+        setFeedback({
+          isValid: true,
+          explanation: "⚡ [Ngoại tuyến] Rất tuyệt vời! Đáp án từ vựng chính xác hoàn toàn với kho câu trả lời lưu trữ của bài học.",
+          xpEarned: 10
+        });
+      } else {
+        playFail();
+        setWrongAttempts((prev) => {
+          const next = prev + 1;
+          if (next >= 2) {
+            handleFetchHint();
+          }
+          return next;
+        });
+        setFeedback({
+          isValid: false,
+          explanation: "Mất kết nối API học tập hoặc đang ngoại tuyến. Hãy thử nhập đáp án chính xác hoặc kết nối mạng.",
+          xpEarned: 0,
+        });
+      }
     } finally {
       setLoading(false);
     }
