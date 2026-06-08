@@ -16,6 +16,8 @@ interface TaskCardProps {
   playFail: () => void;
   onMistake?: (taskId: string) => void;
   onPracticeTopic?: (topicId: string) => void;
+  onNext?: () => void;
+  hasNext?: boolean;
 }
 
 export default function TaskCard({
@@ -27,6 +29,8 @@ export default function TaskCard({
   playFail,
   onMistake,
   onPracticeTopic,
+  onNext,
+  hasNext,
 }: TaskCardProps) {
   const [userVal, setUserVal] = useState("");
   const [loading, setLoading] = useState(false);
@@ -317,6 +321,25 @@ export default function TaskCard({
               </button>
             );
           })}
+          {isCompleted && onNext && (
+            <button
+              type="button"
+              onClick={onNext}
+              className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 active:scale-97 text-white font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer shadow-md transition-all animate-bounce"
+            >
+              {hasNext ? (
+                <>
+                  <span>Câu tiếp theo</span>
+                  <span>➔</span>
+                </>
+              ) : (
+                <>
+                  <span>Hoàn thành chuỗi</span>
+                  <span>🏁</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -446,12 +469,33 @@ export default function TaskCard({
               )}
             </button>
           ) : (
-            <button
-              disabled
-              className="w-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed"
-            >
-              ✔️ ĐÃ HOÀN THÀNH THỬ THÁCH
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                disabled
+                className="w-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 font-bold py-3.5 rounded-xl text-sm cursor-not-allowed"
+              >
+                ✔️ ĐÃ HOÀN THÀNH THỬ THÁCH
+              </button>
+              {onNext && (
+                <button
+                  type="button"
+                  onClick={onNext}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-97 text-white font-black py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer shadow-md transition-all animate-bounce"
+                >
+                  {hasNext ? (
+                    <>
+                      <span>Câu tiếp theo</span>
+                      <span>➔</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Hoàn thành chuỗi</span>
+                      <span>🏁</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

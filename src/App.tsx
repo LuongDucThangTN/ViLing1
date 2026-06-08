@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Topic, Task, Badge, VideoPost, XpHistoryPoint } from "./types";
 import { TOPICS, BADGES, VIDEO_POSTS } from "./data/staticData";
 import {
@@ -50,6 +51,12 @@ export default function App() {
   const [splashFinished, setSplashFinished] = useState<boolean>(false);
   const [activeOpenTopic, setActiveOpenTopic] = useState<string | null>(null);
   const [luyenSubTab, setLuyenSubTab] = useState<"challenge" | "academy" | "vocab" | "fastquiz">("challenge");
+  const [activeChallengeIndex, setActiveChallengeIndex] = useState<number>(0);
+
+  // Reset challenge index when changing topic or subtab
+  useEffect(() => {
+    setActiveChallengeIndex(0);
+  }, [selectedTopic, luyenSubTab]);
 
   // User States & Progress
   const [learnedTodayCount, setLearnedTodayCount] = useState<number>(getLearnedWordsTodayCount);
@@ -755,24 +762,71 @@ export default function App() {
                             </p>
                           </div>
                         ) : (
-                          <div className="space-y-4">
-                            {filteredTasks.map((task) => (
-                              <TaskCard
-                                key={task.id}
-                                task={task}
-                                isCompleted={completedTasks.includes(task.id)}
-                                onComplete={handleTaskComplete}
-                                soundEnabled={soundEnabled}
-                                playSuccess={() => playSuccessSound(soundEnabled)}
-                                playFail={() => playFailSound(soundEnabled)}
-                                onMistake={handleMistake}
-                                onPracticeTopic={(topicId) => {
-                                  setLuyenSubTab("academy");
-                                  setActiveOpenTopic(topicId);
-                                }}
-                              />
-                            ))}
-                          </div>
+                          (() => {
+                            const currentIndexClamped = Math.min(activeChallengeIndex, filteredTasks.length - 1);
+                            const currentTask = filteredTasks[currentIndexClamped];
+                            const hasNext = currentIndexClamped < filteredTasks.length - 1;
+                            const completedCount = filteredTasks.filter(t => completedTasks.includes(t.id)).length;
+                            const progressPercent = Math.round((completedCount / filteredTasks.length) * 100);
+
+                            return (
+                              <div className="space-y-4">
+                                {/* Tasks progress tracker */}
+                                <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-xs">
+                                  <div className="flex items-center justify-between text-xxs font-black text-[var(--text-sub)] tracking-wider uppercase mb-2">
+                                    <span>🚀 TIẾN TRÌNH LUYỆN ĐỀ:</span>
+                                    <span className="text-[#b91c1c] dark:text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full select-none">
+                                      Câu {currentIndexClamped + 1} / {filteredTasks.length} ({progressPercent}% đạt)
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-slate-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden mt-1.5 mb-1 select-none">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-[#b91c1c] to-red-600 rounded-full transition-all duration-300"
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between text-[9px] font-bold text-[var(--text-sub)]">
+                                    <span>Bắt đầu</span>
+                                    <span>Hoàn thành {completedCount} / {filteredTasks.length} bài</span>
+                                  </div>
+                                </div>
+
+                                <AnimatePresence mode="wait">
+                                  <motion.div
+                                    key={currentTask.id}
+                                    initial={{ opacity: 0, x: 15 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -15 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    <TaskCard
+                                      task={currentTask}
+                                      isCompleted={completedTasks.includes(currentTask.id)}
+                                      onComplete={handleTaskComplete}
+                                      soundEnabled={soundEnabled}
+                                      playSuccess={() => playSuccessSound(soundEnabled)}
+                                      playFail={() => playFailSound(soundEnabled)}
+                                      onMistake={handleMistake}
+                                      onPracticeTopic={(topicId) => {
+                                        setLuyenSubTab("academy");
+                                        setActiveOpenTopic(topicId);
+                                      }}
+                                      hasNext={hasNext}
+                                      onNext={() => {
+                                        playClickSound(soundEnabled);
+                                        if (hasNext) {
+                                          setActiveChallengeIndex(currentIndexClamped + 1);
+                                        } else {
+                                          // Wrap or complete
+                                          setActiveChallengeIndex(0);
+                                        }
+                                      }}
+                                    />
+                                  </motion.div>
+                                </AnimatePresence>
+                              </div>
+                            );
+                          })()
                         )}
                       </div>
                     )}

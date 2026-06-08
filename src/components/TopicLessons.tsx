@@ -667,13 +667,21 @@ export default function TopicLessons({
   const [selectedGuideLetter, setSelectedGuideLetter] = useState("S");
 
   const [selectedScamperCode, setSelectedScamperCode] = useState<string>("S");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [selectedSlotIdx, setSelectedSlotIdx] = useState<number>(1);
   const [isGeneratingSlot, setIsGeneratingSlot] = useState<Record<string, boolean>>({});
 
-  // Reset selected slot index when changing technique category
+  // Helper inside component to parse trailing number from task ID to get its slot index
+  const getTaskIndex = (task: Task): number => {
+    const match = task.id.match(/\d+$/);
+    return match ? parseInt(match[0], 10) : 1;
+  };
+
+  // Reset selected slot index when changing technique category or difficulty level
   React.useEffect(() => {
-    setSelectedSlotIdx(1);
-  }, [selectedScamperCode]);
+    const baseIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+    setSelectedSlotIdx(baseIdx);
+  }, [selectedScamperCode, selectedDifficulty]);
 
   const handleGenerateSlotTask = async (idx: number) => {
     if (!activeOpenTopic || !setTasks) return;
@@ -692,7 +700,8 @@ export default function TopicLessons({
           topicId: activeOpenTopic,
           typeCode: selectedScamperCode,
           index: idx,
-          topicName: activeTopicObj.name
+          topicName: activeTopicObj.name,
+          difficulty: selectedDifficulty
         })
       });
 
@@ -749,6 +758,18 @@ export default function TopicLessons({
     const topicTasks = getTasksForTopic(topicId);
     return topicTasks.filter((t) => completedTasks.includes(t.id));
   };
+  
+  const getCompletedCountForLevel = (topicId: string, level: "easy" | "medium" | "hard") => {
+    const topicTasks = getTasksForTopic(topicId);
+    const completedForTopic = topicTasks.filter((t) => completedTasks.includes(t.id));
+    return completedForTopic.filter((t) => {
+      const idx = getTaskIndex(t);
+      if (level === "easy") return idx <= 10;
+      if (level === "medium") return idx > 10 && idx <= 20;
+      return idx > 20;
+    }).length;
+  };
+
   const getCompletedCountForCode = (code: string) => {
     if (!activeOpenTopic) return 0;
     const topicTasks = getTasksForTopic(activeOpenTopic);
@@ -1147,6 +1168,56 @@ export default function TopicLessons({
                           </button>
                         </div>
 
+                        {/* Dynamic Progress Bar depending on whether solving SCAMPER or Mistakes */}
+                        {(() => {
+                          const isMistakeSolving = activeModalTab === "mistakes";
+                          if (isMistakeSolving) {
+                            const totalMistakes = activeTopicMistakes.length;
+                            const currentIdx = activeTopicMistakes.findIndex(t => t.id === solvingTaskId);
+                            const solvedCount = activeTopicMistakes.filter(t => completedTasks.includes(t.id)).length;
+                            const percent = totalMistakes > 0 ? Math.round((solvedCount / totalMistakes) * 100) : 100;
+                            
+                            return (
+                              <div className="bg-slate-500/5 p-3 rounded-xl border border-[var(--border-color)] text-left space-y-1 my-1">
+                                <div className="flex items-center justify-between text-[9px] font-black tracking-wide text-[var(--text-sub)]">
+                                  <span>🚀 HOÀN THIỆN LỖI SAI:</span>
+                                  <span className="text-red-600 dark:text-red-400">
+                                    Thành tích #{currentIdx + 1} / {totalMistakes} ({percent}% đẩy lùi)
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-300"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+                            const currentSubsetTaskIds = Array.from({ length: 10 }, (_, i) => `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${startIdx + i}`);
+                            const completedInSubset = currentSubsetTaskIds.filter(id => completedTasks.includes(id)).length;
+                            const percent = Math.round((completedInSubset / 10) * 100);
+                            
+                            return (
+                              <div className="bg-slate-500/5 p-3 rounded-xl border border-[var(--border-color)] text-left space-y-1 my-1">
+                                <div className="flex items-center justify-between text-[9px] font-black tracking-wide text-[var(--text-sub)]">
+                                  <span>🚀 HOÀN THÀNH CHUYÊN ĐỀ DỄ ➔ KHÓ:</span>
+                                  <span className="text-red-600 dark:text-red-400">
+                                    Bài {selectedSlotIdx} / 30 ({percent}% đạt)
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-[#b91c1c] to-red-500 rounded-full transition-all duration-300"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+
                         {/* Interactive SCAMPER technique stepper for rapid identification */}
                         {(() => {
                           const steps = [
@@ -1349,6 +1420,64 @@ export default function TopicLessons({
                             </div>
                           </div>
                         )}
+
+                        {isSolvingCorrect && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                playBeep(523.25, "sine", 0.08, soundEnabled); // C5 cheerful sound
+                                if (activeModalTab === "mistakes") {
+                                  // Next mistake
+                                  setSelectedOptIdx(null);
+                                  setScamperInput("");
+                                  setSolveFeedback(null);
+                                  setIsSolvingCorrect(null);
+                                  setModalHint(null);
+                                  setIsModalHintLoading(false);
+                                  
+                                  const currentMistakeIdx = activeTopicMistakes.findIndex(t => t.id === solvingTaskId);
+                                  if (currentMistakeIdx !== -1 && currentMistakeIdx < activeTopicMistakes.length - 1) {
+                                    const nextMistake = activeTopicMistakes[currentMistakeIdx + 1];
+                                    setSolvingTaskId(nextMistake.id);
+                                  } else {
+                                    setSolvingTaskId(null);
+                                  }
+                                } else {
+                                  // Next SCAMPER slot index
+                                  setSelectedOptIdx(null);
+                                  setScamperInput("");
+                                  setSolveFeedback(null);
+                                  setIsSolvingCorrect(null);
+                                  setModalHint(null);
+                                  setIsModalHintLoading(false);
+
+                                  const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+                                  const maxIdx = startIdx + 9;
+
+                                  if (selectedSlotIdx < maxIdx) {
+                                    const nextIdx = selectedSlotIdx + 1;
+                                    setSelectedSlotIdx(nextIdx);
+                                    const nextTaskId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${nextIdx}`;
+                                    const nextTask = tasks.find((t) => t.id === nextTaskId);
+                                    if (nextTask) {
+                                      setSolvingTaskId(nextTask.id);
+                                    } else {
+                                      // Return to overview map to let them activate/generate it
+                                      setSolvingTaskId(null);
+                                    }
+                                  } else {
+                                    setSolvingTaskId(null);
+                                  }
+                                }
+                              }}
+                              className="w-full cursor-pointer bg-red-600 hover:bg-red-700 active:scale-97 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all animate-bounce"
+                            >
+                              <span>Câu tiếp theo</span>
+                              <span>➔</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })()
@@ -1416,12 +1545,96 @@ export default function TopicLessons({
                               Phương Pháp Tư Duy SCAMPER
                             </span>
                             <span className="text-[10px] font-extrabold text-[var(--text-main)] px-2 py-0.5 bg-red-600/10 rounded">
-                              Hoàn thành: {getCompletedForTopic(activeOpenTopic!).length}/{activeTopicTasks.length} bài
+                              Hoàn thành: {getCompletedForTopic(activeOpenTopic!).length}/240 bài
                             </span>
                           </div>
                           <p className="text-[9px] text-[var(--text-sub)] font-semibold leading-tight">
-                            Luyện tập trọn bộ các thử thách bồi đắp tư duy ngôn ngữ SCAMPER cùng bài ôn tập trắc nghiệm chuyên sâu để nâng tột bực cấp phản xạ ngữ nghĩa của bản thân!
+                            Luyện tập trọn bộ 3 cấp độ (Dễ, Trung bình, Khó), gồm 30 bài rèn luyện cho mỗi kỹ thuật SCAMPER độc bản để tối ưu năng lực phản xạ tiếng Việt!
                           </p>
+                        </div>
+
+                        {/* 3-LEVEL DIFFICULTY PROGRESSION SECTOR */}
+                        <div>
+                          <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
+                            Mức độ tư duy & Cột mốc mở khóa liên hoàn:
+                          </span>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {[
+                              { level: "easy", name: "Dễ (Cơ bản)", desc: "10 bài/kỹ thuật (Bài #1 - #10)", isLocked: false, color: "from-green-500/10 to-emerald-600/10 border-green-500/20 text-green-700 dark:text-green-400 font-black" },
+                              { 
+                                level: "medium", 
+                                name: "Trung bình (Tăng tốc)", 
+                                desc: "10 bài/kỹ thuật (Bài #11 - #20)", 
+                                isLocked: getCompletedCountForLevel(activeOpenTopic!, "easy") < 8, 
+                                reqText: "Đạt từ 8 bài cấp độ Dễ",
+                                currentProgress: `${getCompletedCountForLevel(activeOpenTopic!, "easy")}/8`,
+                                color: "from-blue-500/10 to-indigo-600/10 border-blue-500/20 text-blue-700 dark:text-blue-400 font-black" 
+                              },
+                              { 
+                                level: "hard", 
+                                name: "Khó (Bác học)", 
+                                desc: "10 bài/kỹ thuật (Bài #21 - #30)", 
+                                isLocked: getCompletedCountForLevel(activeOpenTopic!, "easy") < 8 || getCompletedCountForLevel(activeOpenTopic!, "medium") < 8, 
+                                reqText: "Đạt từ 8 bài Trung bình",
+                                currentProgress: `${getCompletedCountForLevel(activeOpenTopic!, "medium")}/8`,
+                                color: "from-red-500/10 to-orange-600/10 border-red-500/20 text-red-700 dark:text-red-400 font-black" 
+                              }
+                            ].map((lvl) => {
+                              const isActive = selectedDifficulty === lvl.level;
+                              const levelCompletedCount = getCompletedCountForLevel(activeOpenTopic!, lvl.level as any);
+                              
+                              return (
+                                <button
+                                  type="button"
+                                  key={lvl.level}
+                                  onClick={() => {
+                                    if (lvl.isLocked) {
+                                      playBeep(220, "sawtooth", 0.25, soundEnabled);
+                                      return;
+                                    }
+                                    setSelectedDifficulty(lvl.level as any);
+                                    playBeep(440, "sine", 0.08, soundEnabled);
+                                  }}
+                                  className={`relative p-3 rounded-2xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer active:scale-98 ${
+                                    isActive
+                                      ? "ring-2 ring-red-600 border-red-600 bg-red-600/5 dark:bg-red-600/10 scale-102"
+                                      : lvl.isLocked
+                                      ? "bg-slate-500/5 dark:bg-slate-500/2 border-dashed border-slate-300 dark:border-neutral-800 opacity-60 cursor-not-allowed"
+                                      : "bg-[var(--card-bg)] border-[var(--border-color)] hover:bg-black/5 dark:hover:bg-white/5"
+                                  }`}
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <h4 className={`text-[10px] font-black uppercase ${isActive ? "text-red-600 dark:text-red-400" : ""}`}>
+                                        {lvl.name}
+                                      </h4>
+                                      {lvl.isLocked ? (
+                                        <span className="text-[10px]" title="Đang bị mật mã niêm phong">🔒</span>
+                                      ) : isActive ? (
+                                        <span className="text-[9px] animate-pulse text-red-500 font-black">✦ ĐANG CHỌN</span>
+                                      ) : (
+                                        <span className="text-[10px] text-green-500">🔓 Sẵn sàng</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[8px] font-semibold text-[var(--text-sub)]">
+                                      {lvl.desc}
+                                    </p>
+                                  </div>
+
+                                  <div className="mt-3 pt-1.5 border-t border-[var(--border-color)]/20 flex items-center justify-between w-full text-[9px]">
+                                    <span className="text-green-600 dark:text-green-400 font-bold">
+                                      ✓ Đã đạt: {levelCompletedCount}/80 bài
+                                    </span>
+                                    {lvl.isLocked && (
+                                      <span className="text-[8px] text-amber-600 font-black uppercase bg-amber-500/10 border border-amber-500/20 px-1 rounded-sm">
+                                        Cần {lvl.currentProgress} bài
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         {/* THƯ VIỆN GỢI Ý/VÍ DỤ MẪU SCAMPER CHO BÀI HỌC */}
@@ -1514,217 +1727,275 @@ export default function TopicLessons({
                           </div>
                         )}
 
-                        {/* BEAUTIFUL SCAMPER CATEGORIZED MENU STRUCTURE */}
-                        <div className="space-y-4 pt-1">
-                          {/* 1. Horizontal Scrollable or Grid of SCAMPER letters */}
-                          <div>
-                            <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
-                              1) Chọn kỹ thuật tư duy sáng tạo SCAMPER:
-                            </span>
-                            <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5">
-                              {[
-                                { code: "S", label: "Substitute", short: "S - Thay thế", icon: "🔄" },
-                                { code: "C", label: "Combine", short: "C - Kết hợp", icon: "🤝" },
-                                { code: "A", label: "Adapt", short: "A - Thích nghi", icon: "🧩" },
-                                { code: "M", label: "Modify", short: "M - Cải biên", icon: "📈" },
-                                { code: "P", label: "Put other uses", short: "P - Đa dụng", icon: "💡" },
-                                { code: "E", label: "Eliminate", short: "E - Lược bỏ", icon: "✂️" },
-                                { code: "R", label: "Reverse", short: "R - Đảo ngược", icon: "⟲" },
-                                { code: "Q", label: "Quiz", short: "Q - Trắc nghiệm", icon: "📝" }
-                              ].map((cat) => {
-                                const isActive = selectedScamperCode === cat.code;
-                                const completedCount = getCompletedCountForCode(cat.code);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={cat.code}
-                                    onClick={() => setSelectedScamperCode(cat.code)}
-                                    className={`relative p-2 rounded-xl border flex flex-col items-center justify-center cursor-pointer transition-all duration-200 active:scale-95 ${
-                                      isActive
-                                        ? "border-red-600 bg-red-600/5 dark:bg-red-600/10 scale-102 ring-2 ring-red-500/15"
-                                        : "border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-main)] hover:bg-black/5 dark:hover:bg-white/5"
-                                    }`}
-                                  >
-                                    <span className="text-sm md:text-base">{cat.icon}</span>
-                                    <span className="text-[10px] font-black uppercase mt-1 tracking-tight">
-                                      {cat.code}
-                                    </span>
-                                    <span className="text-[7.5px] font-bold text-[var(--text-sub)] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
-                                      {completedCount}/20 Đạt
-                                    </span>
-                                    {completedCount > 0 && (
-                                      <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white shadow-xs">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                        {/* DISPLAY RENDER CONTAINER CARD OR LOCKED SCREEN */}
+                        {(() => {
+                          const isLocked = (selectedDifficulty === "medium" && getCompletedCountForLevel(activeOpenTopic!, "easy") < 8) ||
+                                           (selectedDifficulty === "hard" && (getCompletedCountForLevel(activeOpenTopic!, "easy") < 8 || getCompletedCountForLevel(activeOpenTopic!, "medium") < 8));
 
-                          {/* 2. Technique Explanation Banner */}
-                          {(() => {
-                            const activeCatInfo = [
-                              { code: "S", title: "🔄 S - Thay thế (Substitute)", desc: "Dùng từ ngữ Hán-Việt hay từ láy đắt giá thế chỗ tinh xảo cho từ thông thường để tăng mỹ cảm mô tả." },
-                              { code: "C", title: "🤝 C - Kết hợp (Combine)", desc: "Giao cắt hai thực thể, phối trộn ý niệm ngôn ngữ để kiến tạo từ ghép mới giàu năng lực biểu cảm." },
-                              { code: "A", title: "🧩 A - Thích nghi (Adapt)", desc: "Hấp thụ, đặt lồng các thuật ngữ triết học, lịch sử, nhân sinh, vũ trụ nhằm thi vị hóa cảnh quan và sự vật." },
-                              { code: "M", title: "📈 M - Cải biên (Modify)", desc: "Kéo giãn chiều kích vật lý, vĩ cuồng hóa quy mô không gian hoặc mài sắc mức độ cảm xúc một cách ấn tượng." },
-                              { code: "P", title: "💡 P - Bối cảnh mới (Put to other uses)", desc: "Linh tính hóa thiên nhiên, đổi góc nhìn sự vật như một tri kỷ thiết thân hoặc kết nối thuật ngữ phương diện khác." },
-                              { code: "E", title: "✂️ E - Lược bỏ (Eliminate)", desc: "Lọc tách, tối giản hóa phó từ dư thừa, từ ngữ khuôn mẫu để bài viết câu chữ cô súc, cô đọng tinh lượng cực độ." },
-                              { code: "R", title: "⟲ R - Đảo ngược (Reverse)", desc: "Đảo ngữ cấu trúc câu, tráo đổi phụ tố ngữ pháp để dệt nên thanh âm mượt mà đầy nhạc tính bất ngờ." },
-                              { code: "Q", title: "📝 Q - Trắc nghiệm ôn luyện (Quiz)", desc: "Học phần kiểm tra, luyện sâu phản xạ tri thức Hán Việt và kết hợp sáng tạo lý thuyết SCAMPER chuyên sâu." }
-                            ].find(c => c.code === selectedScamperCode);
-
-                            if (!activeCatInfo) return null;
-                            return (
-                              <div className="bg-slate-500/5 border border-[var(--border-color)] p-2.5 rounded-xl text-left">
-                                <h4 className="text-[10px] font-black text-red-600 dark:text-red-400 tracking-wide uppercase mb-0.5">
-                                  {activeCatInfo.title}
-                                </h4>
-                                <p className="text-[9.5px] font-semibold text-[var(--text-sub)] leading-relaxed">
-                                  {activeCatInfo.desc}
-                                </p>
-                              </div>
-                            );
-                          })()}
-
-                          {/* 3. 20-Task Interactive Grid */}
-                          <div>
-                            <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
-                              2) Bản đồ bồi dưỡng: 20 Bài rèn luyện kỹ thuật {selectedScamperCode}
-                            </span>
-                            <div className="grid grid-cols-5 md:grid-cols-10 gap-1.5 matches-box">
-                              {Array.from({ length: 20 }, (_, idx) => {
-                                const currentNum = idx + 1;
-                                const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${currentNum}`;
-                                const isDone = completedTasks.includes(targetId);
-                                const isWrong = mistakes.includes(targetId);
-                                const exists = tasks.some(t => t.id === targetId);
-                                const isSelected = selectedSlotIdx === currentNum;
-
-                                return (
-                                  <button
-                                    type="button"
-                                    key={currentNum}
-                                    onClick={() => setSelectedSlotIdx(currentNum)}
-                                    className={`relative p-2 border rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 text-[10.5px] font-black ${
-                                      isSelected
-                                        ? "ring-2 ring-red-600 scale-105 border-red-600 z-10"
-                                        : ""
-                                    } ${
-                                      isDone
-                                        ? "bg-green-500/15 border-green-500/30 text-green-700 dark:text-green-400"
-                                        : isWrong
-                                        ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400 animate-pulse"
-                                        : exists
-                                        ? "bg-indigo-500/5 border-indigo-500/15 text-indigo-600 dark:text-indigo-300"
-                                        : "bg-[var(--card-bg)] border-[var(--border-color)] text-[var(--text-sub)] border-dashed border-2 opacity-75 hover:opacity-100"
-                                    }`}
-                                  >
-                                    <span>#{currentNum}</span>
-                                    {isDone && (
-                                      <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
-                                        ✓
-                                      </span>
-                                    )}
-                                    {isWrong && (
-                                      <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
-                                        ⚠️
-                                      </span>
-                                    )}
-                                    {!exists && (
-                                      <span className="absolute -top-1 -right-1 bg-slate-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
-                                        ✨
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* 4. Active Exercise Spotlight Panel */}
-                          {(() => {
-                            const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${selectedSlotIdx}`;
-                            const foundTask = tasks.find(t => t.id === targetId);
-                            const isGenerating = isGeneratingSlot[targetId] || false;
-                            const isDone = completedTasks.includes(targetId);
-                            const isWrong = mistakes.includes(targetId);
-                            const activeTopicObj = STATIC_TOPICS.find((t) => t.id === activeOpenTopic);
+                          if (isLocked) {
+                            const neededLevel = selectedDifficulty === "medium" ? "easy" : "medium";
+                            const currentWins = getCompletedCountForLevel(activeOpenTopic!, neededLevel);
+                            const percent = Math.min(100, Math.floor((currentWins / 8) * 100));
 
                             return (
-                              <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fade-in text-left">
-                                <div className="space-y-1 bg-black/5 dark:bg-white/5 py-2 px-3 rounded-xl w-full">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold bg-red-600/10 text-red-600 px-1.5 py-0.5 rounded tracking-wide uppercase">
-                                      Bài {selectedSlotIdx} / 20 • Kỹ thuật {selectedScamperCode}
-                                    </span>
-                                    {foundTask ? (
-                                      <span className="text-[8px] font-black uppercase text-green-600 px-1.5 py-0.5 bg-green-500/10 rounded">
-                                        Sẵn Sàng
-                                      </span>
-                                    ) : (
-                                      <span className="text-[8px] font-black uppercase text-slate-500 px-1.5 py-0.5 bg-slate-500/10 rounded">
-                                        Chưa kích hoạt
-                                      </span>
-                                    )}
-                                  </div>
-                                  
-                                  {foundTask ? (
-                                    <>
-                                      <h5 className="text-[11px] font-extrabold text-[var(--text-main)] italic leading-snug line-clamp-2 mt-1">
-                                        {foundTask.question.replace(/<[^>]*>/g, '')}
-                                      </h5>
-                                      <p className="text-[9px] text-[var(--text-sub)] font-semibold">
-                                        Kiểm định ngữ điệu Việt Văn ấn tượng. Click để tiếp thu và làm bài thi ngay!
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <h5 className="text-[11px] font-extrabold text-[var(--text-sub)] line-clamp-2 mt-1 italic">
-                                        Thử thách độc bản mang phong vị học thuật mài sắc Việt ngữ của Giáo sư Gemini.
-                                      </h5>
-                                      <p className="text-[9px] text-[var(--text-sub)] leading-snug font-semibold mt-0.5">
-                                        Lấy cảm hứng từ bối cảnh văn học chủ đề &quot;{activeTopicObj?.name || "Chung"}&quot;. Nhấp nút bên cạnh để nạp đề thi từ AI ngay tức khắc!
-                                      </p>
-                                    </>
-                                  )}
+                              <div className="bg-[var(--card-bg)] border-2 border-dashed border-[var(--border-color)] p-8 rounded-2xl text-center space-y-4 animate-fade-in my-4">
+                                <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto shadow-inner animate-bounce">
+                                  🔒
+                                </div>
+                                <div className="space-y-1.5">
+                                  <h4 className="font-extrabold text-[12px] uppercase text-[var(--text-main)] tracking-wider">
+                                    Cấp độ {selectedDifficulty === "medium" ? "Trung Bính" : "Khó"} Đang Niêm Phong!
+                                  </h4>
+                                  <p className="text-[10px] text-[var(--text-sub)] max-w-sm mx-auto leading-normal">
+                                    {selectedDifficulty === "medium" 
+                                      ? "Thế giới tư duy tăng tốc đòi hỏi rèn luyện kỹ lưỡng sắc sảo. Hãy tích lũy ít nhất 8 bài đạt chuẩn ở cấp độ Dễ của chủ đề này để khai phá!"
+                                      : "Đỉnh cao phong cách Bác học lừng lẫy kiệt tác đang đợi bạn. Đạt tối thiểu 8 bài tập cấp độ Trung bình của chủ đề để hóa giải phong ấn!"}
+                                  </p>
                                 </div>
 
-                                <div className="flex-none shrink-0 w-full md:w-auto">
-                                  {foundTask ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStartSolve(foundTask)}
-                                      className="w-full cursor-pointer bg-red-600 text-white rounded-xl py-2 md:py-2.5 px-4 text-[10px] font-black uppercase tracking-wider shadow-md hover:bg-red-700 active:scale-97 transition-all flex items-center justify-center gap-1.5"
-                                    >
-                                      <span>⚡ {isDone ? "Luyện tập lại" : isWrong ? "Khắc phục lỗi sai" : "Bắt đầu làm bài"}</span>
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={isGenerating}
-                                      onClick={() => handleGenerateSlotTask(selectedSlotIdx)}
-                                      className="w-full cursor-pointer bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 text-white rounded-xl py-2 md:py-2.5 px-4 text-[10px] font-black uppercase tracking-wider shadow-md active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
-                                    >
-                                      {isGenerating ? (
+                                <div className="max-w-xs mx-auto space-y-1 p-3 bg-black/5 dark:bg-white/5 rounded-2xl border border-[var(--border-color)]/10">
+                                  <div className="flex justify-between items-center text-[9px] font-black text-[var(--text-main)]">
+                                    <span>TIẾN ĐỘ CHINH PHỤC CẤP {neededLevel.toUpperCase()}:</span>
+                                    <span className="text-red-600">{currentWins}/8 Bài đạt chuẩn</span>
+                                  </div>
+                                  <div className="w-full bg-slate-200 dark:bg-neutral-800 h-2 rounded-full overflow-hidden">
+                                    <div 
+                                      className="bg-gradient-to-r from-red-600 to-orange-500 h-full rounded-full transition-all duration-300" 
+                                      style={{ width: `${percent}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedDifficulty(neededLevel);
+                                    playBeep(440, "sine", 0.08, soundEnabled);
+                                  }}
+                                  className="cursor-pointer bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-wide py-2 px-5 rounded-xl shadow-md transform hover:scale-102 active:scale-97 transition-all inline-flex items-center gap-1"
+                                >
+                                  <span>👉 Trở lại Rèn luyện cấp {neededLevel === "easy" ? "Dễ" : "Trung bình"}</span>
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-4 pt-1">
+                              {/* 1. SCAMPER letters category select */}
+                              <div>
+                                <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
+                                  1) Chọn kỹ thuật tư duy sáng tạo SCAMPER:
+                                </span>
+                                <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5">
+                                  {[
+                                    { code: "S", label: "Substitute", short: "S - Thay thế", icon: "🔄" },
+                                    { code: "C", label: "Combine", short: "C - Kết hợp", icon: "🤝" },
+                                    { code: "A", label: "Adapt", short: "A - Thích nghi", icon: "🧩" },
+                                    { code: "M", label: "Modify", short: "M - Cải biên", icon: "📈" },
+                                    { code: "P", label: "Put other uses", short: "P - Đa dụng", icon: "💡" },
+                                    { code: "E", label: "Eliminate", short: "E - Lược bỏ", icon: "✂️" },
+                                    { code: "R", label: "Reverse", short: "R - Đảo ngược", icon: "⟲" },
+                                    { code: "Q", label: "Quiz", short: "Q - Trắc nghiệm", icon: "📝" }
+                                  ].map((cat) => {
+                                    const isActive = selectedScamperCode === cat.code;
+                                    const completedCount = getCompletedCountForCode(cat.code);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={cat.code}
+                                        onClick={() => setSelectedScamperCode(cat.code)}
+                                        className={`relative p-2 rounded-xl border flex flex-col items-center justify-center cursor-pointer transition-all duration-200 active:scale-95 ${
+                                          isActive
+                                            ? "border-red-600 bg-red-600/5 dark:bg-red-600/10 scale-102 ring-2 ring-red-500/15"
+                                            : "border-[var(--border-color)] bg-[var(--card-bg)] text-[var(--text-main)] hover:bg-black/5 dark:hover:bg-white/5"
+                                        }`}
+                                      >
+                                        <span className="text-sm md:text-base">{cat.icon}</span>
+                                        <span className="text-[10px] font-black uppercase mt-1 tracking-tight">
+                                          {cat.code}
+                                        </span>
+                                        <span className="text-[7.5px] font-bold text-[var(--text-sub)] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                                          {completedCount}/30 Đạt
+                                        </span>
+                                        {completedCount > 0 && (
+                                          <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white shadow-xs">
+                                            ✓
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* 2. Technique Explanation Banner */}
+                              {(() => {
+                                const activeCatInfo = [
+                                  { code: "S", title: "🔄 S - Thay thế (Substitute)", desc: "Dùng từ ngữ Hán-Việt hay từ láy đắt giá thế chỗ tinh xảo cho từ thông thường để tăng mỹ cảm mô tả." },
+                                  { code: "C", title: "🤝 C - Kết hợp (Combine)", desc: "Giao cắt hai thực thể, phối trộn ý niệm ngôn ngữ để kiến tạo từ ghép mới giàu năng lực biểu cảm." },
+                                  { code: "A", title: "🧩 A - Thích nghi (Adapt)", desc: "Hấp thụ, đặt lồng các thuật ngữ triết học, lịch sử, nhân sinh, vũ trụ nhằm thi vị hóa cảnh quan và sự vật." },
+                                  { code: "M", title: "📈 M - Cải biên (Modify)", desc: "Kéo giãn chiều kích vật lý, vĩ cuồng hóa quy mô không gian hoặc mài sắc mức độ cảm xúc một cách ấn tượng." },
+                                  { code: "P", title: "💡 P - Bối cảnh mới (Put to other uses)", desc: "Linh tính hóa thiên nhiên, đổi góc nhìn sự vật như một tri kỷ thiết thân hoặc kết nối thuật ngữ phương diện khác." },
+                                  { code: "E", title: "✂️ E - Lược bỏ (Eliminate)", desc: "Lọc tách, tối giản hóa phó từ dư thừa, từ ngữ khuôn mẫu để bài viết câu chữ cô súc, cô đọng tinh lượng cực độ." },
+                                  { code: "R", title: "⟲ R - Đảo ngược (Reverse)", desc: "Đảo ngữ cấu trúc câu, tráo đổi phụ tố ngữ pháp để dệt nên thanh âm mượt mà đầy nhạc tính bất ngờ." },
+                                  { code: "Q", title: "📝 Q - Trắc nghiệm ôn luyện (Quiz)", desc: "Học phần kiểm tra, luyện sâu phản xạ tri thức Hán Việt và kết hợp sáng tạo lý thuyết SCAMPER chuyên sâu." }
+                                ].find(c => c.code === selectedScamperCode);
+
+                                if (!activeCatInfo) return null;
+                                return (
+                                  <div className="bg-slate-500/5 border border-[var(--border-color)] p-2.5 rounded-xl text-left">
+                                    <h4 className="text-[10px] font-black text-red-600 dark:text-red-400 tracking-wide uppercase mb-0.5">
+                                      {activeCatInfo.title}
+                                    </h4>
+                                    <p className="text-[9.5px] font-semibold text-[var(--text-sub)] leading-relaxed">
+                                      {activeCatInfo.desc}
+                                    </p>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* 3. 10-Task Interactive Grid */}
+                              <div>
+                                <span className="text-[9px] font-black uppercase text-[var(--text-sub)] tracking-wider block mb-2">
+                                  2) Bản đồ bồi dưỡng: 10 bài tập thuộc cấp độ {selectedDifficulty === "easy" ? "DỄ" : selectedDifficulty === "medium" ? "TRUNG BÌNH" : "KHÓ"} (Mã {selectedScamperCode})
+                                </span>
+                                <div className="grid grid-cols-5 md:grid-cols-10 gap-1.5 matches-box">
+                                  {(() => {
+                                    const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+                                    return Array.from({ length: 10 }, (_, idx) => {
+                                      const currentNum = startIdx + idx;
+                                      const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${currentNum}`;
+                                      const isDone = completedTasks.includes(targetId);
+                                      const isWrong = mistakes.includes(targetId);
+                                      const exists = tasks.some(t => t.id === targetId);
+                                      const isSelected = selectedSlotIdx === currentNum;
+
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={currentNum}
+                                          onClick={() => setSelectedSlotIdx(currentNum)}
+                                          className={`relative p-2 border rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 text-[10.5px] font-black ${
+                                            isSelected
+                                              ? "ring-2 ring-red-600 scale-105 border-red-600 z-10"
+                                              : ""
+                                          } ${
+                                            isDone
+                                              ? "bg-green-500/15 border-green-500/30 text-green-700 dark:text-green-400"
+                                              : isWrong
+                                              ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400 animate-pulse"
+                                              : exists
+                                              ? "bg-indigo-500/5 border-indigo-500/15 text-indigo-600 dark:text-indigo-300"
+                                              : "bg-[var(--card-bg)] border-[var(--border-color)] text-[var(--text-sub)] border-dashed border-2 opacity-75 hover:opacity-100"
+                                          }`}
+                                        >
+                                          <span>#{currentNum}</span>
+                                          {isDone && (
+                                            <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
+                                              ✓
+                                            </span>
+                                          )}
+                                          {isWrong && (
+                                            <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
+                                              ⚠️
+                                            </span>
+                                          )}
+                                          {!exists && (
+                                            <span className="absolute -top-1 -right-1 bg-slate-500 text-white text-[6px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
+                                              ✨
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              </div>
+
+                              {/* 4. Active Exercise Spotlight Panel */}
+                              {(() => {
+                                const targetId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${selectedSlotIdx}`;
+                                const foundTask = tasks.find(t => t.id === targetId);
+                                const isGenerating = isGeneratingSlot[targetId] || false;
+                                const isDone = completedTasks.includes(targetId);
+                                const isWrong = mistakes.includes(targetId);
+                                const activeTopicObj = STATIC_TOPICS.find((t) => t.id === activeOpenTopic);
+
+                                return (
+                                  <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fade-in text-left">
+                                    <div className="space-y-1 bg-black/5 dark:bg-white/5 py-2 px-3 rounded-xl w-full">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold bg-red-600/10 text-red-600 px-1.5 py-0.5 rounded tracking-wide uppercase">
+                                          Cập {selectedDifficulty === "easy" ? "Dễ" : selectedDifficulty === "medium" ? "Trung bình" : "Khó"} • Bài {selectedSlotIdx} • Mã {selectedScamperCode}
+                                        </span>
+                                        {foundTask ? (
+                                          <span className="text-[8px] font-black uppercase text-green-600 px-1.5 py-0.5 bg-green-500/10 rounded">
+                                            Sẵn Sàng
+                                          </span>
+                                        ) : (
+                                          <span className="text-[8px] font-black uppercase text-slate-500 px-1.5 py-0.5 bg-slate-500/10 rounded">
+                                            Chưa kích hoạt
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      {foundTask ? (
                                         <>
-                                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                          <span>Đang cấu trúc đề...</span>
+                                          <h5 className="text-[11px] font-extrabold text-[var(--text-main)] italic leading-snug line-clamp-2 mt-1">
+                                            {foundTask.question.replace(/<[^>]*>/g, '')}
+                                          </h5>
+                                          <p className="text-[9px] text-[var(--text-sub)] font-semibold">
+                                            Mài giũa văn phong Việt Ngữ đỉnh cao. Click để mở bảng thẩm định với AI!
+                                          </p>
                                         </>
                                       ) : (
                                         <>
-                                          <span>✨ Kích hoạt Bài Bác Học {selectedSlotIdx}</span>
+                                          <h5 className="text-[11px] font-extrabold text-[var(--text-sub)] line-clamp-2 mt-1 italic">
+                                            Bài bồi dưỡng đỉnh cao được thiết kế độc bản bởi Giáo sư Gemini.
+                                          </h5>
+                                          <p className="text-[9px] text-[var(--text-sub)] leading-snug font-semibold mt-0.5">
+                                            Lấy cảm hứng từ chuyên đề độc quyền &quot;{activeTopicObj?.name || "Chung"}&quot;. Nhấp nút kích hoạt để nạp đề bài từ AI ngay!
+                                          </p>
                                         </>
                                       )}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
+                                    </div>
+
+                                    <div className="flex-none shrink-0 w-full md:w-auto">
+                                      {foundTask ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartSolve(foundTask)}
+                                          className="w-full cursor-pointer bg-red-600 text-white rounded-xl py-2 md:py-2.5 px-4 text-[10px] font-black uppercase tracking-wider shadow-md hover:bg-red-700 active:scale-97 transition-all flex items-center justify-center gap-1.5"
+                                        >
+                                          <span>⚡ {isDone ? "Luyện tập lại" : isWrong ? "Khắc phục lỗi sai" : "Bắt đầu làm bài"}</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={isGenerating}
+                                          onClick={() => handleGenerateSlotTask(selectedSlotIdx)}
+                                          className="w-full cursor-pointer bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 text-white rounded-xl py-2 md:py-2.5 px-4 text-[10px] font-black uppercase tracking-wider shadow-md active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+                                        >
+                                          {isGenerating ? (
+                                            <>
+                                              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                              <span>Đang mài giũa đề...</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span>✨ Kích hoạt Bài Học Thuật {selectedSlotIdx}</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
