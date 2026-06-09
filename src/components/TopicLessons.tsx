@@ -732,6 +732,105 @@ export default function TopicLessons({
   const [isCachingAll, setIsCachingAll] = useState<boolean>(false);
   const [cacheProgress, setCacheProgress] = useState<number>(0);
 
+  // Auto-progression configs to skip repetitive step clicks
+  const [autoNext, setAutoNext] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("viling_auto_next");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+  const [autoNextCountdown, setAutoNextCountdown] = useState<number | null>(null);
+
+  const triggerNextLesson = () => {
+    // Clear selections and inputs first to prevent leaks
+    setSelectedOptIdx(null);
+    setScamperInput("");
+    setSolveFeedback(null);
+    setIsSolvingCorrect(null);
+    setModalHint(null);
+    setIsModalHintLoading(false);
+    setAutoNextCountdown(null);
+
+    if (activeModalTab === "mistakes") {
+      // Next mistake
+      const currentMistakeIdx = activeTopicMistakes.findIndex(t => t.id === solvingTaskId);
+      if (currentMistakeIdx !== -1 && currentMistakeIdx < activeTopicMistakes.length - 1) {
+        const nextMistake = activeTopicMistakes[currentMistakeIdx + 1];
+        setSolvingTaskId(nextMistake.id);
+      } else {
+        setSolvingTaskId(null);
+      }
+    } else {
+      // Next SCAMPER slot index
+      const startIdx = selectedDifficulty === "easy" ? 1 : selectedDifficulty === "medium" ? 11 : 21;
+      const maxIdx = startIdx + 9;
+
+      if (selectedSlotIdx < maxIdx) {
+        const nextIdx = selectedSlotIdx + 1;
+        setSelectedSlotIdx(nextIdx);
+        const nextTaskId = `${activeOpenTopic}_${selectedScamperCode.toLowerCase()}${nextIdx}`;
+        const nextTask = tasks.find((t) => t.id === nextTaskId);
+        if (nextTask) {
+          setSolvingTaskId(nextTask.id);
+        } else {
+          // Return matching placeholder state which says it's loading, then trigger generation!
+          setSolvingTaskId(nextTaskId);
+          handleGenerateSlotTask(nextIdx).then((newTask) => {
+            if (newTask) {
+              setSolvingTaskId(newTask.id);
+            } else {
+              setSolvingTaskId(null);
+            }
+          }).catch((err) => {
+            console.error(err);
+            setSolvingTaskId(null);
+          });
+        }
+      } else {
+        setSolvingTaskId(null);
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    if (autoNext && typeof window !== "undefined") {
+      localStorage.setItem("viling_auto_next", "true");
+    } else if (typeof window !== "undefined") {
+      localStorage.setItem("viling_auto_next", "false");
+    }
+  }, [autoNext]);
+
+  // Synchronized Countdown Effect for Auto Lesson Activation
+  React.useEffect(() => {
+    let timer: any;
+    let countdownInterval: any;
+    if (isSolvingCorrect && autoNext) {
+      setAutoNextCountdown(3);
+      countdownInterval = setInterval(() => {
+        setAutoNextCountdown((prev) => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      timer = setTimeout(() => {
+        triggerNextLesson();
+      }, 3000);
+    } else {
+      setAutoNextCountdown(null);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(countdownInterval);
+    };
+  }, [isSolvingCorrect, autoNext, solvingTaskId]);
+
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       setIsOnline(navigator.onLine);
@@ -1594,6 +1693,26 @@ export default function TopicLessons({
                           </div>
                         )}
 
+                        {isSolvingCorrect && (
+                          <div className="mb-3 space-y-2.5">
+                            {autoNextCountdown !== null && (
+                              <div className="bg-green-500/10 border border-green-500/20 px-3 py-2.5 rounded-xl text-center text-[10px] text-green-700 dark:text-green-400 font-extrabold animate-pulse flex items-center justify-center gap-1">
+                                🚀 Tự động kích hoạt bài kế tiếp sau {autoNextCountdown} giây...
+                              </div>
+                            )}
+                            <div className="flex justify-center select-none">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-[var(--text-sub)] hover:text-red-700">
+                                <input
+                                  type="checkbox"
+                                  checked={autoNext}
+                                  onChange={(e) => setAutoNext(e.target.checked)}
+                                  className="accent-red-600 rounded"
+                                />
+                                <span>Tự động kích hoạt bài kế tiếp</span>
+                              </label>
+                            </div>
+                          </div>
+                        )}
                         {isSolvingCorrect && (
                           <div className="pt-2">
                             <button

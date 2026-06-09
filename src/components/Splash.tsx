@@ -50,7 +50,7 @@ export default function Splash({ onComplete }: SplashProps) {
       </div>
       <div className="absolute bottom-10 text-xxs opacity-50 flex items-center gap-1.5 font-mono">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        TRÍ TUỆ NHÂN TẠO GEMINI HỖ TRỢ
+        TRÍ TUỆ NHÂN TẠO AI HỖ TRỢ
       </div>
     </div>
   );

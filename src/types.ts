@@ -43,6 +43,8 @@ export interface VideoPost {
   comments: number;
   isLiked?: boolean;
   bgGradient: string;
+  videoUrl?: string; // Direct link to .mp4 or YouTube embed link
+  audioUrl?: string; // Direct link to .mp3/.wav audio file, or custom voice file URL
 }
 
 export interface UserProgress {

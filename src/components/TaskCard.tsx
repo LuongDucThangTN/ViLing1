@@ -205,7 +205,7 @@ export default function TaskCard({
       {task.isAiGenerated && (
         <div className="absolute top-2 right-3 flex items-center gap-1 opacity-70">
           <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold font-mono">
-            GEMINI AI
+            AI
           </span>
         </div>
       )}
