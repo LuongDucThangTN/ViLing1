@@ -472,7 +472,7 @@ export default function App() {
     });
   };
 
-  // Generate and append an AI challenge from Gemini
+  // Generate and append an AI challenge from AI
   const handleAiGenerateTask = async () => {
     if (isAiGenerating) return;
     setIsAiGenerating(true);
@@ -872,7 +872,7 @@ export default function App() {
                               Học từ vựng cấp tiến tích hợp AI
                             </h3>
                             <p className="text-xxs opacity-90 leading-normal">
-                              Nhờ trợ lý ảo Gemini viết riêng cho bạn các bài đọc hiểu và trắc nghiệm thực tế xoay quanh chủ đề đã chọn ngay lập tức!
+                              Nhờ trợ lý ảo AI viết riêng cho bạn các bài đọc hiểu và trắc nghiệm thực tế xoay quanh chủ đề đã chọn ngay lập tức!
                             </p>
 
                             <button
@@ -886,7 +886,7 @@ export default function App() {
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                   </svg>
-                                  <span>Gemini đang soạn câu hỏi...</span>
+                                  <span>AI đang soạn câu hỏi...</span>
                                 </>
                               ) : (
                                 <>
@@ -923,7 +923,7 @@ export default function App() {
                               <span className="text-4xl mb-3 block">🚧</span>
                               <h4 className="font-bold text-sm text-[var(--text-main)]">Thử thách chưa có sẵn</h4>
                               <p className="text-xxs text-[var(--text-sub)] max-w-xs mx-auto px-4 mt-1">
-                                Chưa có bài ôn nào cho danh mục này. Hãy ấn nút tạo bài luyện AI phía trên để Gemini viết tặng bạn câu hỏi thiết thực!
+                                Chưa có bài ôn nào cho danh mục này. Hãy ấn nút tạo bài luyện AI phía trên để AI viết tặng bạn câu hỏi thiết thực!
                               </p>
                             </div>
                           ) : (

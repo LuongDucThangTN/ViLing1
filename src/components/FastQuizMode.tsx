@@ -213,7 +213,7 @@ export default function FastQuizMode({
 
       setIsSubmitting(true);
       try {
-        // Try to hit API route for smart Gemini verification
+        // Try to hit API route for smart AI verification
         const res = await fetch("/api/ai/validate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -395,14 +395,14 @@ export default function FastQuizMode({
                     className="w-full p-3.5 border-2 border-[var(--border-color)] rounded-xl text-sm outline-none bg-[var(--input-bg)] text-[var(--text-main)] transition-all duration-200 focus:border-red-500"
                   />
 
-                  {/* Gemini Intelligent Hint for Fast Quiz Mode */}
+                  {/* AI Intelligent Hint for Fast Quiz Mode */}
                   {currentFeedback === null && (
                     <div className="text-left mt-0.5">
                       {fastQuizHint ? (
                         <div className="bg-purple-500/5 text-purple-700 dark:text-purple-300 border border-purple-500/20 p-3 rounded-xl text-[11px] leading-relaxed animate-fade-in flex items-start gap-1.5">
                           <span className="text-sm">💡</span>
                           <div>
-                            <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ Gemini:</strong>
+                            <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ AI:</strong>
                             <span>{fastQuizHint}</span>
                           </div>
                         </div>
@@ -419,11 +419,11 @@ export default function FastQuizMode({
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              <span>Gemini đang tìm gợi ý...</span>
+                              <span>AI đang tìm gợi ý...</span>
                             </>
                           ) : (
                             <>
-                              <span>💡 Bí từ? Thử nhận một gợi ý thông thái từ Gemini</span>
+                              <span>💡 Bí từ? Thử nhận một gợi ý thông thái từ AI</span>
                             </>
                           )}
                         </button>
@@ -443,7 +443,7 @@ export default function FastQuizMode({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          <span>Gemini đang thẩm định...</span>
+                          <span>AI đang thẩm định...</span>
                         </>
                       ) : (
                         <span>🤖 Kiểm tra kết quả</span>

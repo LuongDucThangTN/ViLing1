@@ -758,13 +758,13 @@ export default function TopicLessons({
     setSelectedSlotIdx(baseIdx);
   }, [selectedScamperCode, selectedDifficulty]);
 
-  const handleGenerateSlotTask = async (idx: number) => {
-    if (!activeOpenTopic || !setTasks) return;
+  const handleGenerateSlotTask = async (idx: number): Promise<Task | null> => {
+    if (!activeOpenTopic || !setTasks) return null;
     const activeTopicObj = STATIC_TOPICS.find((t) => t.id === activeOpenTopic);
-    if (!activeTopicObj) return;
+    if (!activeTopicObj) return null;
 
     const slotKey = `${activeOpenTopic}_${selectedScamperCode}_${idx}`;
-    if (isGeneratingSlot[slotKey]) return;
+    if (isGeneratingSlot[slotKey]) return null;
 
     setIsGeneratingSlot(prev => ({ ...prev, [slotKey]: true }));
     try {
@@ -791,12 +791,14 @@ export default function TopicLessons({
         
         // Play success beep
         playBeep(783.99, "sine", 0.15, soundEnabled); // G5 pleasant sound
+        return newTask;
       }
     } catch (e) {
       console.error("Error generating slot task:", e);
     } finally {
       setIsGeneratingSlot(prev => ({ ...prev, [slotKey]: false }));
     }
+    return null;
   };
 
   const handleCacheAllSlots = async () => {
@@ -1291,7 +1293,32 @@ export default function TopicLessons({
                   // Reusable Live Task Solver block for both SCAMPER list and Mistakes
                   (() => {
                     const matchingTask = activeTopicTasks.find((t) => t.id === solvingTaskId);
-                    if (!matchingTask) return null;
+                    if (!matchingTask) {
+                      const matchIdx = solvingTaskId.match(/\d+$/);
+                      const idx = matchIdx ? parseInt(matchIdx[0], 10) : null;
+                      const slotKey = idx ? `${activeOpenTopic}_${selectedScamperCode}_${idx}` : "";
+                      const isGeneratingThis = isGeneratingSlot[slotKey] || false;
+
+                      if (isGeneratingThis) {
+                        return (
+                          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-8 rounded-2xl shadow-md animate-fade-in flex flex-col items-center justify-center text-center space-y-4 my-2">
+                            <div className="relative">
+                              <div className="w-12 h-12 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
+                              <span className="absolute inset-0 flex items-center justify-center text-sm">🤖</span>
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="font-extrabold text-sm text-[var(--text-main)]">
+                                Tự động kích hoạt Bài tiếp theo (#{idx})
+                              </h4>
+                              <p className="text-xxs text-[var(--text-sub)] max-w-xs leading-normal">
+                                AI đang mài giũa đề sáng tạo mới tinh cho phản xạ tư duy của bạn...
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }
 
                     return (
                       <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-4 rounded-2xl shadow-md animate-fade-in space-y-4">
@@ -1470,7 +1497,7 @@ export default function TopicLessons({
                               className="w-full p-2.5 border border-[var(--border-color)] rounded-xl bg-[var(--input-bg)] text-xs text-[var(--text-main)] font-semibold outline-none focus:border-red-600"
                             />
 
-                            {/* Intelligent Gemini Hint */}
+                            {/* Intelligent AI Hint */}
                             {isSolvingCorrect !== true && (
                               <div className="text-left py-0.5">
                                 {(modalWrongAttempts[matchingTask.id] || 0) >= 2 ? (
@@ -1484,7 +1511,7 @@ export default function TopicLessons({
                                       <span className="text-xs">🤖</span>
                                       <div>
                                         <strong className="text-purple-700 dark:text-purple-400 font-extrabold block mb-0.5">
-                                          Gợi ý từ Gemini sau {(modalWrongAttempts[matchingTask.id] || 0)} lần thử chưa đúng:
+                                          Gợi ý từ AI sau {(modalWrongAttempts[matchingTask.id] || 0)} lần thử chưa đúng:
                                         </strong>
                                         {isModalHintLoading ? (
                                           <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400 text-xxs font-black">
@@ -1492,7 +1519,7 @@ export default function TopicLessons({
                                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            <span>Gemini đang soạn gợi ý...</span>
+                                            <span>AI đang soạn gợi ý...</span>
                                           </div>
                                         ) : modalHint ? (
                                           <p className="text-[var(--text-main)] font-semibold italic bg-white/40 dark:bg-black/20 p-2 rounded-lg border border-purple-500/10">
@@ -1504,7 +1531,7 @@ export default function TopicLessons({
                                             onClick={() => handleFetchModalHint(matchingTask)}
                                             className="cursor-pointer text-[10px] font-black text-purple-600 dark:text-purple-400 hover:underline"
                                           >
-                                            👉 Nhấn đây để tải gợi ý từ Gemini
+                                            👉 Nhấn đây để tải gợi ý từ AI
                                           </button>
                                         )}
                                       </div>
@@ -1515,7 +1542,7 @@ export default function TopicLessons({
                                     <div className="bg-purple-500/5 text-purple-700 dark:text-purple-300 border border-purple-500/20 p-2.5 rounded-xl text-[10px] leading-relaxed animate-fade-in flex items-start gap-1">
                                       <span className="text-xs">💡</span>
                                       <div>
-                                        <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ Gemini:</strong>
+                                        <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ AI:</strong>
                                         <span>{modalHint}</span>
                                       </div>
                                     </div>
@@ -1527,9 +1554,9 @@ export default function TopicLessons({
                                       className="cursor-pointer text-xxs font-black text-purple-600 dark:text-purple-400 hover:text-white hover:bg-purple-600/95 border border-purple-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all active:scale-97 disabled:opacity-50"
                                     >
                                       {isModalHintLoading ? (
-                                        <span>Gemini đang soạn gợi ý...</span>
+                                        <span>AI đang soạn gợi ý...</span>
                                       ) : (
-                                        <span>💡 Bí từ? Xem gợi ý nhanh từ Gemini</span>
+                                        <span>💡 Bí từ? Xem gợi ý nhanh từ AI</span>
                                       )}
                                     </button>
                                   )
@@ -1543,7 +1570,7 @@ export default function TopicLessons({
                                 disabled={isSubmitLoading || !scamperInput.trim()}
                                 className="cursor-pointer w-full bg-[#b91c1c] text-white py-2.5 rounded-xl text-xs font-black hover:bg-red-700 active:scale-95 disabled:opacity-50"
                               >
-                                {isSubmitLoading ? "Đang nhờ Gemini thẩm định..." : "🤖 Thẩm định với AI"}
+                                {isSubmitLoading ? "Đang nhờ AI thẩm định..." : "🤖 Thẩm định với AI"}
                               </button>
                             )}
                           </div>
@@ -1609,8 +1636,19 @@ export default function TopicLessons({
                                     if (nextTask) {
                                       setSolvingTaskId(nextTask.id);
                                     } else {
-                                      // Return to overview map to let them activate/generate it
-                                      setSolvingTaskId(null);
+                                      // Return matching placeholder state which says it's loading, then trigger generation!
+                                      setSolvingTaskId(nextTaskId);
+                                      handleGenerateSlotTask(nextIdx).then((newTask) => {
+                                        if (newTask) {
+                                          setSolvingTaskId(newTask.id);
+                                        } else {
+                                          // Fallback to overview map if generation fails
+                                          setSolvingTaskId(null);
+                                        }
+                                      }).catch((err) => {
+                                        console.error(err);
+                                        setSolvingTaskId(null);
+                                      });
                                     }
                                   } else {
                                     setSolvingTaskId(null);
@@ -2094,7 +2132,12 @@ export default function TopicLessons({
                                         <button
                                           type="button"
                                           key={currentNum}
-                                          onClick={() => setSelectedSlotIdx(currentNum)}
+                                          onClick={() => {
+                                            setSelectedSlotIdx(currentNum);
+                                            if (!exists) {
+                                              handleGenerateSlotTask(currentNum);
+                                            }
+                                          }}
                                           className={`relative p-2 border rounded-xl flex flex-col items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 text-[10.5px] font-black ${
                                             isSelected
                                               ? "ring-2 ring-red-600 scale-105 border-red-600 z-10"
@@ -2171,7 +2214,7 @@ export default function TopicLessons({
                                       ) : (
                                         <>
                                           <h5 className="text-[11px] font-extrabold text-[var(--text-sub)] line-clamp-2 mt-1 italic">
-                                            Bài bồi dưỡng đỉnh cao được thiết kế độc bản bởi Giáo sư Gemini.
+                                            Bài bồi dưỡng đỉnh cao được thiết kế độc bản bởi Giáo sư AI.
                                           </h5>
                                           <p className="text-[9px] text-[var(--text-sub)] leading-snug font-semibold mt-0.5">
                                             Lấy cảm hứng từ chuyên đề độc quyền &quot;{activeTopicObj?.name || "Chung"}&quot;. Nhấp nút kích hoạt để nạp đề bài từ AI ngay!

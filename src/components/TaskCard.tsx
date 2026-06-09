@@ -126,7 +126,7 @@ export default function TaskCard({
     }
   };
 
-  // Handle SCAMPER validation via Server-side Gemini AI
+  // Handle SCAMPER validation via Server-side AI
   const handleAiValidate = async () => {
     if (isCompleted || loading || !userVal.trim()) return;
 
@@ -367,7 +367,7 @@ export default function TaskCard({
             className="w-full p-3.5 border-2 border-[var(--border-color)] rounded-xl text-base outline-none bg-[var(--input-bg)] text-[var(--text-main)] transition-all duration-200 focus:border-red-500"
           />
 
-           {/* Intelligent Hint Option with Gemini */}
+          {/* Intelligent Hint Option with AI */}
           {!isCompleted && (
             <div className="mt-0.5 mb-1 text-left">
               {wrongAttempts >= 2 ? (
@@ -382,7 +382,7 @@ export default function TaskCard({
                     <span className="text-sm">🤖</span>
                     <div>
                       <strong className="text-purple-700 dark:text-purple-400 font-extrabold block mb-1">
-                        Gợi ý của Gemini sau {wrongAttempts} lần nhập chưa đúng:
+                        Gợi ý của AI sau {wrongAttempts} lần nhập chưa đúng:
                       </strong>
                       {loadingHint ? (
                         <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 text-[10px] font-black">
@@ -390,7 +390,7 @@ export default function TaskCard({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          <span>Gemini đang biên soạn tư vấn tinh tế...</span>
+                          <span>AI đang biên soạn tư vấn tinh tế...</span>
                         </div>
                       ) : hint ? (
                         <p className="text-[var(--text-main)] font-semibold italic bg-white/40 dark:bg-black/20 p-2.5 rounded-lg border border-purple-500/10">
@@ -402,7 +402,7 @@ export default function TaskCard({
                           onClick={handleFetchHint}
                           className="cursor-pointer text-xs font-black text-purple-600 dark:text-purple-400 hover:underline"
                         >
-                          👉 Nhấn đây để nhận gợi ý tức thì từ Gemini
+                          👉 Nhấn đây để nhận gợi ý tức thì từ AI
                         </button>
                       )}
                     </div>
@@ -414,7 +414,7 @@ export default function TaskCard({
                   <div className="bg-purple-500/5 text-purple-700 dark:text-purple-300 border border-purple-500/20 p-3 rounded-xl text-[11px] leading-relaxed animate-fade-in flex items-start gap-1.5">
                     <span className="text-sm">💡</span>
                     <div>
-                      <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ Gemini:</strong>
+                      <strong className="text-purple-600 dark:text-purple-400 font-extrabold block mb-0.5">Gợi ý từ AI:</strong>
                       <span>{hint}</span>
                     </div>
                   </div>
@@ -431,11 +431,11 @@ export default function TaskCard({
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>Gemini đang soạn gợi ý tinh vi...</span>
+                        <span>AI đang soạn gợi ý tinh vi...</span>
                       </>
                     ) : (
                       <>
-                        <span>💡 Bí từ? Thử nhận một gợi ý thông thái từ Gemini</span>
+                        <span>💡 Bí từ? Thử nhận một gợi ý thông thái từ AI</span>
                       </>
                     )}
                   </button>
@@ -476,7 +476,7 @@ export default function TaskCard({
                 </>
               ) : (
                 <>
-                  <span>🤖 Kiểm tra với Gemini AI</span>
+                  <span>🤖 Kiểm tra với AI</span>
                 </>
               )}
             </button>
