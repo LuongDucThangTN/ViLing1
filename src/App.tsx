@@ -25,6 +25,7 @@ import TopicLessons from "./components/TopicLessons";
 import MyVocabulary from "./components/MyVocabulary";
 import FastQuizMode from "./components/FastQuizMode";
 import WordOfTheDay from "./components/WordOfTheDay";
+import AdminPanel from "./components/AdminPanel";
 
 const getLearnedWordsTodayCount = () => {
   try {
@@ -106,6 +107,10 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isTasksLoading, setIsTasksLoading] = useState<boolean>(true);
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
+
+  // MicroLearn Data States (Dynamic Server Feed)
+  const [posts, setPosts] = useState<VideoPost[]>([]);
+  const [isPostsLoading, setIsPostsLoading] = useState<boolean>(true);
 
   // Confetti Canvas Ref
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -362,6 +367,27 @@ export default function App() {
       }
     }
     fetchTasks();
+  }, []);
+
+  // Load Initial MicroLearn Posts on Mount
+  useEffect(() => {
+    async function fetchPosts() {
+      try {
+        const res = await fetch("/api/microlearn/list");
+        const json = await res.json();
+        if (json.status === "success" && Array.isArray(json.data) && json.data.length > 0) {
+          setPosts(json.data);
+        } else {
+          setPosts(VIDEO_POSTS);
+        }
+      } catch (err) {
+        console.error("MicroLearn posts download error, falling back locally:", err);
+        setPosts(VIDEO_POSTS);
+      } finally {
+        setIsPostsLoading(false);
+      }
+    }
+    fetchPosts();
   }, []);
 
   // Trigger high-fidelity Confetti
@@ -1071,7 +1097,7 @@ export default function App() {
               {activeTab === "video" && (
                 <div className="absolute inset-0 w-full h-[81vh]">
                   <MicroLearnFeed
-                    posts={VIDEO_POSTS}
+                    posts={posts}
                     onPracticeTopic={handlePracticeTopicFromReels}
                     soundEnabled={soundEnabled}
                     playSwipe={() => playSwipeSound(soundEnabled)}
@@ -1114,6 +1140,33 @@ export default function App() {
                     darkMode={darkMode}
                     setDarkMode={setDarkMode}
                     onReset={handleReset}
+                    onOpenAdmin={() => setActiveTab("admin")}
+                  />
+                </div>
+              )}
+
+              {/* Tab: Quản trị (Admin) */}
+              {activeTab === "admin" && (
+                <div className="p-5 animate-fade-in">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-[#b91c1c] uppercase tracking-wider">Hệ thống</span>
+                      <h1 className="text-2xl font-black tracking-tight text-[var(--text-main)]">Quản trị ViLing</h1>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("caidat")}
+                      className="cursor-pointer bg-[var(--input-bg)] hover:bg-[var(--border-color)] text-[var(--text-main)] text-xs font-black px-3.5 py-2 rounded-xl border border-[var(--border-color)] transition-all active:scale-95"
+                    >
+                      ← Quay lại
+                    </button>
+                  </div>
+
+                  <AdminPanel
+                    tasks={tasks}
+                    setTasks={setTasks}
+                    posts={posts}
+                    setPosts={setPosts}
+                    soundEnabled={soundEnabled}
                   />
                 </div>
               )}

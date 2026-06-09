@@ -12,6 +12,7 @@ interface SettingsViewProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   onReset: (type: "progress" | "full") => void;
+  onOpenAdmin: () => void;
 }
 
 export default function SettingsView({
@@ -20,6 +21,7 @@ export default function SettingsView({
   darkMode,
   setDarkMode,
   onReset,
+  onOpenAdmin,
 }: SettingsViewProps) {
   const [reminderEnabled, setReminderEnabled] = React.useState<boolean>(() => {
     const saved = localStorage.getItem("viling_reminder_enabled");
@@ -368,6 +370,27 @@ export default function SettingsView({
             <li><strong>E (Eliminate)</strong>: Lược bỏ tiếng dư thừa để viết súc tích.</li>
             <li><strong>R (Reverse)</strong>: Đảo ngược vị trí âm tiết tạo sắc thái độc đáo.</li>
           </ul>
+        </div>
+      </div>
+
+      {/* Admin Section */}
+      <div>
+        <h3 className="text-sm font-black text-[var(--text-main)] tracking-wider uppercase mb-3.5">
+          💼 Quản trị hệ thống ViLing
+        </h3>
+        <div className="bg-red-500/5 dark:bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-left transition-all hover:bg-red-500/20">
+          <h4 className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-wide flex items-center gap-1">
+            🔑 Cập nhật Nội dung Học tập & MicroLearn
+          </h4>
+          <p className="text-[10px] text-[var(--text-sub)] mt-1.5 leading-relaxed">
+            Cho phép điều phối viên hoặc quản trị viên tùy biến ngân hàng đề thi câu hỏi, cập nhật hoặc đăng tải thêm các video học, clip Reels động trong mục MicroLearn.
+          </p>
+          <button
+            onClick={onOpenAdmin}
+            className="cursor-pointer mt-3 bg-red-600 hover:bg-red-700 active:scale-97 text-white font-black py-2.5 px-4 rounded-xl text-[10px] tracking-wide transition-all uppercase"
+          >
+            Mở Bảng Quản Trị Hệ Thống 🔒
+          </button>
         </div>
       </div>
 
